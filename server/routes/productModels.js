@@ -118,29 +118,59 @@ router.post('/:id/bom', authenticate, authorize('admin', 'gerant', 'production')
 
 // UPDATE Pack Items for a specific model
 router.post('/:id/pack', authenticate, authorize('admin', 'gerant', 'production'), async (req, res) => {
-  const { PackItem } = require('../models');
+  const t = await ProductModel.sequelize.transaction();
   try {
     const { items } = req.body; // Array of { productId, quantity }
     const packId = req.params.id;
 
     const model = await ProductModel.findByPk(packId);
-    if (!model) return res.status(404).json({ error: 'Model not found.' });
-
-    // Clear existing Pack Items
-    await PackItem.destroy({ where: { packId } });
-
-    // Add new Pack Items
-    if (items && items.length > 0) {
-      const packData = items.map(i => ({
-        packId,
-        productId: i.productId,
-        quantity: i.quantity,
-      }));
-      await PackItem.bulkCreate(packData);
+    if (!model) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Model not found.' });
     }
 
-    res.json({ message: 'Pack updated successfully.' });
+    // 1. Save pack items
+    await PackItem.destroy({ where: { packId }, transaction: t });
+    if (items && items.length > 0) {
+      await PackItem.bulkCreate(
+        items.map(i => ({ packId, productId: i.productId, quantity: i.quantity })),
+        { transaction: t }
+      );
+    }
+
+    // 2. Auto-calculate pack BOM = sum of each product's materials × quantity in pack
+    const aggregated = {}; // { materialId: totalQuantity }
+
+    if (items && items.length > 0) {
+      for (const item of items) {
+        // Load this product's BOM
+        const productBom = await ModelMaterial.findAll({
+          where: { modelId: item.productId },
+          transaction: t,
+        });
+        for (const entry of productBom) {
+          const mid = entry.materialId;
+          const qty = Number(entry.quantity) * Number(item.quantity);
+          aggregated[mid] = (aggregated[mid] || 0) + qty;
+        }
+      }
+    }
+
+    // 3. Write the aggregated BOM to the pack's model_materials
+    await ModelMaterial.destroy({ where: { modelId: packId }, transaction: t });
+    const bomData = Object.entries(aggregated).map(([materialId, quantity]) => ({
+      modelId: packId,
+      materialId: Number(materialId),
+      quantity,
+    }));
+    if (bomData.length > 0) {
+      await ModelMaterial.bulkCreate(bomData, { transaction: t });
+    }
+
+    await t.commit();
+    res.json({ message: 'Pack updated and BOM auto-calculated successfully.', bomEntries: bomData.length });
   } catch (error) {
+    await t.rollback();
     console.error(error);
     res.status(500).json({ error: 'Server error.' });
   }

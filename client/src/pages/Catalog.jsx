@@ -243,7 +243,9 @@ export default function Catalog() {
       {showPackModal && (
         <Modal title={`Contenu du Pack: ${activeModel?.name}`} onClose={() => setShowPackModal(false)} onSubmit={handlePackSubmit} submitLabel="Enregistrer Pack">
           <div className="pack-editor">
-            <p style={{marginBottom:16, fontSize:14, color:'var(--text-muted)'}}>Ajoutez les produits qui composent ce pack.</p>
+            <div style={{background:'rgba(59,130,246,0.08)', borderRadius:8, padding:'10px 14px', marginBottom:16, border:'1px solid rgba(59,130,246,0.2)', fontSize:13, color:'var(--text-secondary)'}}>
+              ℹ️ Les <strong>matières premières du pack</strong> seront automatiquement calculées comme la <strong>somme des matières</strong> de chaque produit × sa quantité dans le pack.
+            </div>
             {packEntries.map((entry, index) => (
               <div key={index} className="form-row" style={{alignItems:'flex-end', marginBottom:12}}>
                 <div className="form-group" style={{flex:2}}>
