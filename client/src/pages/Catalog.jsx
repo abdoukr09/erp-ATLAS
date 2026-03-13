@@ -17,6 +17,8 @@ export default function Catalog() {
   const [modelForm, setModelForm] = useState({ name: '', category: 'Sofa', description: '', basePrice: '', isPack: false });
   const [bomEntries, setBomEntries] = useState([]);
   const [packEntries, setPackEntries] = useState([]);
+  const [bomSearch, setBomSearch] = useState('');
+  const [bomFocusIndex, setBomFocusIndex] = useState(-1);
 
   const canManage = hasRole('admin', 'gerant', 'production');
 
@@ -257,25 +259,46 @@ export default function Catalog() {
       )}
 
       {showBomModal && (
-        <Modal title={`Matières pour: ${activeModel?.name}`} onClose={() => setShowBomModal(false)} onSubmit={handleBomSubmit} submitLabel="Enregistrer BOM">
+        <Modal title={`Matières pour: ${activeModel?.name}`} onClose={() => { setShowBomModal(false); setBomSearch(''); }} onSubmit={handleBomSubmit} submitLabel="Enregistrer BOM">
           <div className="bom-editor">
             <p style={{marginBottom:16, fontSize:14, color:'var(--text-muted)'}}>Définissez les matières premières nécessaires pour fabriquer une unité de ce produit.</p>
-            {bomEntries.map((entry, index) => (
-              <div key={index} className="form-row" style={{alignItems:'flex-end', marginBottom:12}}>
-                <div className="form-group" style={{flex:2}}>
-                  <label>Matière Première</label>
-                  <select className="form-control" value={entry.materialId} onChange={e => updateBomRow(index, 'materialId', e.target.value)}>
-                    <option value="">Choisir...</option>
-                    {materials.map(mat => <option key={mat.id} value={mat.id}>{mat.name} ({mat.unit})</option>)}
-                  </select>
+            {bomEntries.map((entry, index) => {
+              const selectedMat = materials.find(m => m.id === parseInt(entry.materialId));
+              return (
+                <div key={index} className="form-row" style={{alignItems:'flex-end', marginBottom:12}}>
+                  <div className="form-group" style={{flex:2, position:'relative'}}>
+                    <label>Matière Première</label>
+                    <input
+                      className="form-control"
+                      placeholder="Rechercher une matière..."
+                      value={bomFocusIndex === index ? bomSearch : (selectedMat ? `${selectedMat.name} (${selectedMat.unit})` : '')}
+                      onChange={e => { setBomSearch(e.target.value); setBomFocusIndex(index); }}
+                      onFocus={() => { setBomFocusIndex(index); setBomSearch(''); }}
+                    />
+                    {bomFocusIndex === index && (
+                      <div style={{position:'absolute', top:'100%', left:0, right:0, zIndex:10, background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, maxHeight:180, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}>
+                        {materials.filter(m => m.name.toLowerCase().includes(bomSearch.toLowerCase())).map(mat => (
+                          <div
+                            key={mat.id}
+                            style={{padding:'8px 12px', cursor:'pointer', fontSize:13, borderBottom:'1px solid var(--border-color)'}}
+                            onMouseDown={() => { updateBomRow(index, 'materialId', mat.id); setBomFocusIndex(-1); setBomSearch(''); }}
+                            onMouseEnter={e => e.target.style.background='var(--bg-hover)'}
+                            onMouseLeave={e => e.target.style.background='transparent'}
+                          >
+                            {mat.name} <span style={{color:'var(--text-muted)'}}>({mat.unit})</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="form-group" style={{flex:1}}>
+                    <label>Quantité</label>
+                    <input className="form-control" type="number" step="0.01" value={entry.quantity} onChange={e => updateBomRow(index, 'quantity', e.target.value)} />
+                  </div>
+                  <button type="button" className="btn-icon danger" style={{marginBottom:8}} onClick={() => removeBomRow(index)}><Trash2 size={14} /></button>
                 </div>
-                <div className="form-group" style={{flex:1}}>
-                  <label>Quantité</label>
-                  <input className="form-control" type="number" step="0.01" value={entry.quantity} onChange={e => updateBomRow(index, 'quantity', e.target.value)} />
-                </div>
-                <button type="button" className="btn-icon danger" style={{marginBottom:8}} onClick={() => removeBomRow(index)}><Trash2 size={14} /></button>
-              </div>
-            ))}
+              );
+            })}
             <button type="button" className="btn btn-ghost" style={{width:'100%', marginTop:8}} onClick={addBomRow}>
               <Plus size={14} /> Ajouter une ligne
             </button>

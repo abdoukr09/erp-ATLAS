@@ -10,7 +10,7 @@ export default function Inventory() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: '', category: 'other', stock: '', unit: 'pcs', minStock: '10', price: '', supplier: '' });
+  const [form, setForm] = useState({ name: '', category: 'other', stock: '', unit: 'pcs', minStock: '1', price: '', supplier: '' });
 
   const categoryLabels = {
     wood: 'Carcasse (Bois)',
@@ -57,7 +57,7 @@ export default function Inventory() {
         }
       }
       setShowModal(false); setEditing(null);
-      setForm({ name: '', category: 'other', stock: '', unit: 'pcs', minStock: '10', price: '', supplier: '' });
+      setForm({ name: '', category: 'other', stock: '', unit: 'pcs', minStock: '1', price: '', supplier: '' });
       fetchMaterials();
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
@@ -102,7 +102,7 @@ export default function Inventory() {
               <input className="search-input" placeholder="Rechercher des articles..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             {canManage && (
-              <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ name: '', category: 'other', stock: '', unit: 'pcs', minStock: '10', price: '', supplier: '' }); setShowModal(true); }}>
+              <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ name: '', category: 'other', stock: '', unit: 'pcs', minStock: '1', price: '', supplier: '' }); setShowModal(true); }}>
                 <Plus size={16} /> Ajouter Article
               </button>
             )}
