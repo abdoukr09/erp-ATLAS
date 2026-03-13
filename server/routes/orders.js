@@ -49,7 +49,7 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req
 
     const subtotal = (quantity || 1) * (unitPrice || 0);
     const discount = subtotal * ((discountPercentage || 0) / 100);
-    const totalPrice = subtotal - discount;
+    const totalPrice = req.body.totalPrice !== undefined ? req.body.totalPrice : (subtotal - discount);
 
     let initialStatus = 'pending';
     if (useStock) {
@@ -100,7 +100,9 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (r
     const order = await Order.findByPk(req.params.id);
     if (!order) return res.status(404).json({ error: 'Order not found.' });
 
-    if (req.body.quantity !== undefined || req.body.unitPrice !== undefined || req.body.discountPercentage !== undefined) {
+    if (req.body.totalPrice !== undefined) {
+      req.body.totalPrice = req.body.totalPrice;
+    } else if (req.body.quantity !== undefined || req.body.unitPrice !== undefined || req.body.discountPercentage !== undefined) {
       const qty = req.body.quantity !== undefined ? req.body.quantity : order.quantity;
       const price = req.body.unitPrice !== undefined ? req.body.unitPrice : order.unitPrice;
       const disc = req.body.discountPercentage !== undefined ? req.body.discountPercentage : order.discountPercentage;

@@ -33,20 +33,29 @@ export default function Orders() {
 
   const handleSubmit = async () => {
     try {
-      if (editing) {
-        await api.put(`/orders/${editing.id}`, form);
-      } else {
-        await api.post('/orders', form);
+      // Calculate exact total to send to backend to prevent discount rounding errors
+      let finalTotal = Math.round((parseInt(form.quantity) || 1) * (parseFloat(form.unitPrice) || 0) * (1 - (parseFloat(form.discountPercentage) || 0) / 100));
+      if (customTotal !== '') {
+        const parsedCustom = parseFloat(customTotal);
+        if (!isNaN(parsedCustom)) finalTotal = parsedCustom;
       }
-      setShowModal(false); setEditing(null);
+
+      const payload = { ...form, totalPrice: finalTotal };
+
+      if (editing) {
+        await api.put(`/orders/${editing.id}`, payload);
+      } else {
+        await api.post('/orders', payload);
+      }
+      setShowModal(false); setEditing(null); setCustomTotal('');
       setForm({ customerId: '', sofaModel: '', quantity: 1, unitPrice: '', discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', notes: '', status: 'pending', useStock: false });
-      fetchOrders();
       fetchOrders();
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
   const handleEdit = (order) => {
     setEditing(order);
+    setCustomTotal(order.totalPrice ? String(order.totalPrice) : '');
     setForm({
       customerId: order.customerId, sofaModel: order.sofaModel,
       quantity: order.quantity, unitPrice: order.unitPrice,
