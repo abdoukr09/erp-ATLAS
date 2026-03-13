@@ -1,0 +1,55 @@
+const User = require('./User');
+const Customer = require('./Customer');
+const Material = require('./Material');
+const Order = require('./Order');
+const Production = require('./Production');
+const Delivery = require('./Delivery');
+const Payment = require('./Payment');
+const ProductModel = require('./ProductModel');
+const ModelMaterial = require('./ModelMaterial');
+const PackItem = require('./PackItem');
+
+// Associations
+Customer.hasMany(Order, { foreignKey: 'customerId', as: 'orders' });
+Order.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer' });
+
+Order.hasMany(Production, { foreignKey: 'orderId', as: 'productions', onDelete: 'CASCADE' });
+Production.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
+
+Order.hasMany(Delivery, { foreignKey: 'orderId', as: 'deliveries', onDelete: 'CASCADE' });
+Delivery.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
+
+Order.hasMany(Payment, { foreignKey: 'orderId', as: 'payments', onDelete: 'CASCADE' });
+Payment.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
+
+// BOM Associations
+ProductModel.belongsToMany(Material, { through: ModelMaterial, foreignKey: 'modelId', as: 'materials' });
+Material.belongsToMany(ProductModel, { through: ModelMaterial, foreignKey: 'materialId', as: 'models' });
+
+// Explicit Junction Associations (Needed for custom includes)
+ProductModel.hasMany(ModelMaterial, { foreignKey: 'modelId', as: 'bomEntries' });
+ModelMaterial.belongsTo(ProductModel, { foreignKey: 'modelId', as: 'productModel' });
+
+Material.hasMany(ModelMaterial, { foreignKey: 'materialId', as: 'modelEntries' });
+ModelMaterial.belongsTo(Material, { foreignKey: 'materialId', as: 'material' });
+
+// Pack Associations
+ProductModel.hasMany(PackItem, { foreignKey: 'packId', as: 'packItems', onDelete: 'CASCADE' });
+PackItem.belongsTo(ProductModel, { foreignKey: 'packId', as: 'pack' });
+PackItem.belongsTo(ProductModel, { foreignKey: 'productId', as: 'product' });
+
+ProductModel.hasMany(Production, { foreignKey: 'productModelId', as: 'stockProductions' });
+Production.belongsTo(ProductModel, { foreignKey: 'productModelId', as: 'productModel' });
+
+module.exports = {
+  User,
+  Customer,
+  Material,
+  Order,
+  Production,
+  Delivery,
+  Payment,
+  ProductModel,
+  ModelMaterial,
+  PackItem,
+};
