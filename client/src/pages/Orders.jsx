@@ -179,12 +179,29 @@ export default function Orders() {
             </div>
             <div className="form-group">
               <label>Remise (%)</label>
-              <input className="form-control" type="number" min="0" max="100" value={form.discountPercentage} onChange={e => setForm({...form, discountPercentage: e.target.value})} />
+              <input className="form-control" type="number" min="0" max="100" step="0.01" value={form.discountPercentage} onChange={e => setForm({...form, discountPercentage: e.target.value})} />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Total après remise: <span style={{color:'var(--accent-blue)', fontWeight:700}}>{( (parseInt(form.quantity) || 1) * (parseFloat(form.unitPrice) || 0) * (1 - (parseFloat(form.discountPercentage) || 0) / 100) ).toLocaleString()} DA</span></label>
+              <label>Total après remise (DA)</label>
+              <input 
+                className="form-control" 
+                type="number" 
+                placeholder="Montant total final"
+                value={Math.round((parseInt(form.quantity) || 1) * (parseFloat(form.unitPrice) || 0) * (1 - (parseFloat(form.discountPercentage) || 0) / 100))}
+                onChange={e => {
+                  const val = parseFloat(e.target.value) || 0;
+                  const subtotal = (parseInt(form.quantity) || 1) * (parseFloat(form.unitPrice) || 0);
+                  if (subtotal > 0) {
+                    const discount = (1 - (val / subtotal)) * 100;
+                    setForm({ ...form, discountPercentage: parseFloat(discount.toFixed(2)) });
+                  }
+                }}
+              />
+              <p style={{fontSize:'0.8em', color:'var(--text-muted)', marginTop:4}}>
+                Calculé: {( (parseInt(form.quantity) || 1) * (parseFloat(form.unitPrice) || 0) * (1 - (parseFloat(form.discountPercentage) || 0) / 100) ).toLocaleString()} DA
+              </p>
             </div>
           </div>
           <div className="form-row">
