@@ -117,7 +117,7 @@ export default function Dashboard() {
           <div className="stat-card green animate-in">
             <div className="stat-icon green"><TrendingUp size={24} /></div>
             <div className="stat-info">
-              <h3>{stats.totalRevenue.toLocaleString()} DH</h3>
+              <h3>{stats.totalRevenue.toLocaleString()} DA</h3>
               <p>Chiffre d'Affaires (Total)</p>
             </div>
           </div>
@@ -126,7 +126,7 @@ export default function Dashboard() {
           <div className="stat-card blue animate-in" style={{background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.15) 100%)'}}>
             <div className="stat-icon blue"><Banknote size={24} /></div>
             <div className="stat-info">
-              <h3>{stats.totalAdvancePayments.toLocaleString()} DH</h3>
+              <h3>{stats.totalAdvancePayments.toLocaleString()} DA</h3>
               <p>Avances Reçues</p>
             </div>
           </div>
@@ -135,7 +135,7 @@ export default function Dashboard() {
           <div className="stat-card green animate-in" style={{background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(34, 197, 94, 0.15) 100%)'}}>
             <div className="stat-icon green"><CreditCard size={24} /></div>
             <div className="stat-info">
-              <h3>{stats.totalFinalPayments.toLocaleString()} DH</h3>
+              <h3>{stats.totalFinalPayments.toLocaleString()} DA</h3>
               <p>Paiements Finaux</p>
             </div>
           </div>
@@ -144,7 +144,7 @@ export default function Dashboard() {
           <div className="stat-card green animate-in" style={{background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(34, 197, 94, 0.15) 100%)'}}>
             <div className="stat-icon green"><CalendarDays size={24} /></div>
             <div className="stat-info">
-              <h3>{stats.todayRevenue ? stats.todayRevenue.toLocaleString() : '0'} DH</h3>
+              <h3>{stats.todayRevenue ? stats.todayRevenue.toLocaleString() : '0'} DA</h3>
               <p>Chiffre d'Affaires (Aujourd'hui)</p>
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function Dashboard() {
       <div className="charts-grid">
         {hasRole('admin', 'gerant') && (
           <div className="chart-card">
-            <h3>Revenus Mensuels — Avances vs Paiements Finaux (DH)</h3>
+            <h3>Revenus Mensuels — Avances vs Paiements Finaux (DA)</h3>
             {stackedBarData.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={stackedBarData}>
@@ -179,7 +179,7 @@ export default function Dashboard() {
                     contentStyle={{ background: '#1e293b', border: '1px solid rgba(71,85,105,0.3)', borderRadius: '8px', color: '#f1f5f9' }}
                     formatter={(value, name) => {
                       const labels = { advance: 'Avances', final: 'Paiements Finaux', other: 'Autres' };
-                      return [`${Number(value).toLocaleString()} DH`, labels[name] || name];
+                      return [`${Number(value).toLocaleString()} DA`, labels[name] || name];
                     }}
                   />
                   <Legend
@@ -252,9 +252,9 @@ export default function Dashboard() {
                 <td>#{order.id}</td>
                 <td>{order.customer?.name || '—'}</td>
                 <td>{order.sofaModel}</td>
-                <td>{Number(order.totalPrice).toLocaleString()} DH</td>
-                <td style={{color: '#3b82f6', fontWeight: 600}}>{Number(order.advancePayment || 0).toLocaleString()} DH</td>
-                <td style={{color: '#22c55e', fontWeight: 600}}>{Number(order.remainingPayment || 0).toLocaleString()} DH</td>
+                <td>{Number(order.totalPrice).toLocaleString()} DA</td>
+                <td style={{color: '#3b82f6', fontWeight: 600}}>{Number(order.advancePayment || 0).toLocaleString()} DA</td>
+                <td style={{color: '#22c55e', fontWeight: 600}}>{Number(order.remainingPayment || 0).toLocaleString()} DA</td>
                 <td>
                   <span className={`badge badge-${order.paymentStatus === 'fully_paid' ? 'delivered' : order.paymentStatus === 'advance_paid' ? 'in_production' : 'pending'}`}>
                     {paymentStatusLabels[order.paymentStatus] || order.paymentStatus || 'Non payé'}

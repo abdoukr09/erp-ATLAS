@@ -61,12 +61,12 @@ export default function Finance() {
           <div className="stat-info">
             {hasRole('sales') ? (
               <>
-                <h3>{todayRevenue.toLocaleString()} DH</h3>
+                <h3>{todayRevenue.toLocaleString()} DA</h3>
                 <p>Chiffre d'Affaires (Aujourd'hui)</p>
               </>
             ) : (
               <>
-                <h3>{totalRevenue.toLocaleString()} DH</h3>
+                <h3>{totalRevenue.toLocaleString()} DA</h3>
                 <p>Chiffre d'Affaires (Total)</p>
               </>
             )}
@@ -111,7 +111,7 @@ export default function Finance() {
                     <span className="badge badge-scheduled">Autre</span>
                   )}
                 </td>
-                <td style={{fontWeight:700, color:'var(--accent-green)'}}>{Number(p.amount).toLocaleString()} DH</td>
+                <td style={{fontWeight:700, color:'var(--accent-green)'}}>{Number(p.amount).toLocaleString()} DA</td>
                 <td><span className="badge badge-scheduled">{p.method === 'cash' ? 'Espèces' : p.method === 'bank_transfer' ? 'Virement' : p.method === 'check' ? 'Chèque' : 'Carte'}</span></td>
                 <td><span className={`badge badge-${p.status}`}>{p.status === 'completed' ? 'Complété' : p.status === 'pending' ? 'En attente' : 'Échoué'}</span></td>
                 <td>{p.paymentDate}</td>
@@ -136,13 +136,13 @@ export default function Finance() {
               <label>Commande *</label>
               <select className="form-control" value={form.orderId} onChange={e => setForm({...form, orderId: e.target.value})} required>
                 <option value="">Sélectionner une commande</option>
-                {orders.map(o => <option key={o.id} value={o.id}>#{o.id} - {o.sofaModel} ({Number(o.totalPrice).toLocaleString()} DH)</option>)}
+                {orders.map(o => <option key={o.id} value={o.id}>#{o.id} - {o.sofaModel} ({Number(o.totalPrice).toLocaleString()} DA)</option>)}
               </select>
             </div>
           )}
           <div className="form-row">
             <div className="form-group">
-              <label>Montant (DH) *</label>
+              <label>Montant (DA) *</label>
               <input className="form-control" type="number" min="0" placeholder="Montant" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} required />
             </div>
             <div className="form-group">

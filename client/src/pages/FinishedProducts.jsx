@@ -80,7 +80,7 @@ export default function FinishedProducts() {
                 <td style={{ fontWeight: 600 }}>{m.name}</td>
                 <td>{m.category || '—'}</td>
                 <td><span className="badge badge-delivered" style={{ fontSize: '1.1rem' }}>{m.stock}</span> units</td>
-                <td>{m.basePrice} DH</td>
+                <td>{m.basePrice} DA</td>
               </tr>
             )) : (
               <tr><td colSpan="4" className="table-empty"><p>Aucun modèle en stock</p></td></tr>

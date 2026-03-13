@@ -113,7 +113,7 @@ export default function Deliveries() {
                   {isFullyPaid ? (
                     <span style={{fontWeight:700, color:'#22c55e', background:'rgba(34,197,94,0.12)', padding:'3px 10px', borderRadius:20, fontSize:13}}>✓ Payé</span>
                   ) : (
-                    <span style={{fontWeight:700, color:'var(--accent-red)'}}>{reste.toLocaleString()} DH</span>
+                    <span style={{fontWeight:700, color:'var(--accent-red)'}}>{reste.toLocaleString()} DA</span>
                   )}
                 </td>
                 <td>{d.deliveryDate || '—'}</td>
@@ -192,11 +192,11 @@ export default function Deliveries() {
             <div style={{display: 'flex', gap: 24, marginTop: 12}}>
               <div>
                 <p style={{margin: 0, fontSize: 12, color: 'var(--text-muted)'}}>Prix Total</p>
-                <p style={{margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text-primary)'}}>{Number(confirmDelivery.order?.totalPrice || 0).toLocaleString()} DH</p>
+                <p style={{margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text-primary)'}}>{Number(confirmDelivery.order?.totalPrice || 0).toLocaleString()} DA</p>
               </div>
               <div>
                 <p style={{margin: 0, fontSize: 12, color: 'var(--text-muted)'}}>Avance Payée</p>
-                <p style={{margin: 0, fontSize: 18, fontWeight: 700, color: '#3b82f6'}}>{Number(confirmDelivery.order?.advancePayment || 0).toLocaleString()} DH</p>
+                <p style={{margin: 0, fontSize: 18, fontWeight: 700, color: '#3b82f6'}}>{Number(confirmDelivery.order?.advancePayment || 0).toLocaleString()} DA</p>
               </div>
               <div>
                 <p style={{margin: 0, fontSize: 12, color: 'var(--text-muted)'}}>Reste à Payer</p>

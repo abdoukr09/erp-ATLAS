@@ -134,7 +134,7 @@ export default function Inventory() {
                 <td style={{fontWeight:600, color: isLowStock(m) ? 'var(--accent-red)' : 'var(--accent-green)'}}>{Number(m.stock)}</td>
                 <td>{m.unit}</td>
                 <td>{Number(m.minStock)}</td>
-                <td>{m.price ? `${Number(m.price)} DH` : '—'}</td>
+                <td>{m.price ? `${Number(m.price)} DA` : '—'}</td>
                 <td>{m.supplier || '—'}</td>
                 {canManage && (
                   <td>
@@ -190,7 +190,7 @@ export default function Inventory() {
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Prix (DH)</label>
+              <label>Prix (DA)</label>
               <input className="form-control" type="number" min="0" placeholder="Prix unitaire" value={form.price} onChange={e => setForm({...form, price: e.target.value})} />
             </div>
             <div className="form-group">

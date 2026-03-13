@@ -111,7 +111,7 @@ export default function Orders() {
                 <td>{o.sofaModel}</td>
                 <td>{o.quantity}</td>
                 <td>
-                  <div style={{fontWeight:600}}>{Number(o.totalPrice).toLocaleString()} DH</div>
+                  <div style={{fontWeight:600}}>{Number(o.totalPrice).toLocaleString()} DA</div>
                   {Number(o.discountPercentage) > 0 && (
                     <div style={{fontSize:'0.75em', color:'var(--accent-blue)'}}>Remise: {o.discountPercentage}%</div>
                   )}
@@ -121,7 +121,7 @@ export default function Orders() {
                   <div style={{fontSize:'0.85em', fontWeight:600, color: (Number(o.totalPrice) <= Number(o.advancePayment || 0)) ? 'var(--accent-green)' : 'var(--accent-red)'}}>
                     {(Number(o.totalPrice) <= Number(o.advancePayment || 0)) 
                       ? 'Versement complet' 
-                      : `Reste: ${(Number(o.totalPrice) - Number(o.advancePayment || 0)).toLocaleString()} DH`}
+                      : `Reste: ${(Number(o.totalPrice) - Number(o.advancePayment || 0)).toLocaleString()} DA`}
                   </div>
                 </td>
                 <td><span className={`badge badge-${o.status}`}>{statusLabels[o.status] || o.status}</span></td>
@@ -174,7 +174,7 @@ export default function Orders() {
           )}
           <div className="form-row">
             <div className="form-group">
-              <label>Prix unitaire (DH)</label>
+              <label>Prix unitaire (DA)</label>
               <input className="form-control" type="number" min="0" placeholder="Prix par unité" value={form.unitPrice} onChange={e => setForm({...form, unitPrice: e.target.value})} />
             </div>
             <div className="form-group">
@@ -184,12 +184,12 @@ export default function Orders() {
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Total après remise: <span style={{color:'var(--accent-blue)', fontWeight:700}}>{( (parseInt(form.quantity) || 1) * (parseFloat(form.unitPrice) || 0) * (1 - (parseFloat(form.discountPercentage) || 0) / 100) ).toLocaleString()} DH</span></label>
+              <label>Total après remise: <span style={{color:'var(--accent-blue)', fontWeight:700}}>{( (parseInt(form.quantity) || 1) * (parseFloat(form.unitPrice) || 0) * (1 - (parseFloat(form.discountPercentage) || 0) / 100) ).toLocaleString()} DA</span></label>
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Avance (DH)</label>
+              <label>Avance (DA)</label>
               <input className="form-control" type="number" min="0" placeholder="Montant de l'avance" value={form.advancePayment} onChange={e => setForm({...form, advancePayment: e.target.value})} />
             </div>
           </div>

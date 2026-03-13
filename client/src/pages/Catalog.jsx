@@ -214,7 +214,7 @@ export default function Catalog() {
                     {m.stock || 0}
                   </span>
                 </td>
-                <td style={{fontWeight:700}}>{Number(m.basePrice).toLocaleString()} DH</td>
+                <td style={{fontWeight:700}}>{Number(m.basePrice).toLocaleString()} DA</td>
                 {canManage && (
                   <td>
                     <div className="action-buttons">
@@ -243,7 +243,7 @@ export default function Catalog() {
               <input className="form-control" placeholder="Ex: Sofa, Chaise..." value={modelForm.category} onChange={e => setModelForm({...modelForm, category: e.target.value})} />
             </div>
             <div className="form-group">
-              <label>Prix de Base (DH)</label>
+              <label>Prix de Base (DA)</label>
               <input className="form-control" type="number" value={modelForm.basePrice} onChange={e => setModelForm({...modelForm, basePrice: e.target.value})} />
             </div>
           </div>
