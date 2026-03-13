@@ -34,19 +34,12 @@ const deductMaterials = async (orderId, productModelId, targetQuantity, t) => {
 
     if (!model) return;
 
-    // Add direct materials
+    // Add direct materials (which for Packs contains the fully calculated BOM too)
     if (model.materials && model.materials.length > 0) {
       for (const material of model.materials) {
         const requiredQty = material.ModelMaterial.quantity * multiplier;
         const currentTotal = materialMap.get(material.id) || 0;
         materialMap.set(material.id, currentTotal + requiredQty);
-      }
-    }
-
-    // Recursively collect from pack items
-    if (model.isPack && model.packItems && model.packItems.length > 0) {
-      for (const item of model.packItems) {
-        await collect(item.productId, item.quantity * multiplier);
       }
     }
   };
