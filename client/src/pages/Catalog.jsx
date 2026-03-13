@@ -96,6 +96,31 @@ export default function Catalog() {
   const handleBomSubmit = async () => {
     try {
       await api.post(`/product-models/${activeModel.id}/bom`, { materials: bomEntries });
+      
+      // Mirror BOM suggestion (gauche ↔ droite)
+      const mirrorModelName = getMirrorName(activeModel.name);
+      if (mirrorModelName) {
+        const mirrorModel = models.find(m => m.name.toLowerCase() === mirrorModelName.toLowerCase());
+        if (mirrorModel && confirm(`Voulez-vous copier ces matières premières pour "${mirrorModelName}" aussi ?\n\n(Les matières gauche/droite seront automatiquement inversées)`)) {
+          // Build mirrored BOM entries
+          const mirroredEntries = bomEntries.map(entry => {
+            const originalMat = materials.find(m => m.id === parseInt(entry.materialId));
+            if (originalMat) {
+              const mirrorMatName = getMirrorName(originalMat.name);
+              if (mirrorMatName) {
+                const mirrorMat = materials.find(m => m.name.toLowerCase() === mirrorMatName.toLowerCase());
+                if (mirrorMat) {
+                  return { materialId: mirrorMat.id, quantity: entry.quantity };
+                }
+              }
+            }
+            // No mirror material found — use same material (shared parts like pieds, mousse)
+            return { materialId: entry.materialId, quantity: entry.quantity };
+          });
+          await api.post(`/product-models/${mirrorModel.id}/bom`, { materials: mirroredEntries });
+        }
+      }
+
       setShowBomModal(false);
       fetchModels();
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
