@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/', authenticate, authorize('admin', 'delivery', 'gerant'), async (req, res) => {
   try {
     const deliveries = await Delivery.findAll({
-      include: [{ model: Order, as: 'order', attributes: ['id', 'sofaModel', 'quantity', 'status', 'totalPrice', 'advancePayment', 'deliveryAddress'] }],
+      include: [{ model: Order, as: 'order', attributes: ['id', 'sofaModel', 'quantity', 'status', 'totalPrice', 'advancePayment', 'remainingPayment', 'paymentStatus', 'deliveryAddress'] }],
       order: [['createdAt', 'DESC']],
     });
     res.json(deliveries);
@@ -50,9 +50,53 @@ router.put('/:id', authenticate, authorize('admin', 'delivery', 'gerant'), async
       return res.status(404).json({ error: 'Delivery not found.' });
     }
 
-    // If delivered, update order status
-    if (req.body.status === 'delivered' && delivery.status !== 'delivered' && delivery.order) {
-      await delivery.order.update({ status: 'delivered' }, { transaction: t });
+    const newStatus = req.body.status;
+    const wasDelivered = delivery.status === 'delivered';
+    const willBeDelivered = newStatus === 'delivered';
+
+    if (delivery.order) {
+      // Changing FROM delivered → something else: reverse the final payment
+      if (wasDelivered && !willBeDelivered) {
+        await Payment.destroy({
+          where: { orderId: delivery.order.id, type: 'final' },
+          transaction: t,
+        });
+        const hadAdvance = Number(delivery.order.advancePayment) > 0;
+        await delivery.order.update({
+          status: 'ready',
+          remainingPayment: 0,
+          paymentStatus: hadAdvance ? 'advance_paid' : 'unpaid',
+        }, { transaction: t });
+      }
+
+      // Changing TO delivered (and wasn't before): create the final payment
+      if (!wasDelivered && willBeDelivered) {
+        const remainingAmount = Math.max(0, Number(delivery.order.totalPrice) - Number(delivery.order.advancePayment));
+
+        // Remove any accidental duplicates first
+        await Payment.destroy({
+          where: { orderId: delivery.order.id, type: 'final' },
+          transaction: t,
+        });
+
+        if (remainingAmount > 0) {
+          await Payment.create({
+            orderId: delivery.order.id,
+            amount: remainingAmount,
+            method: req.body.paymentMethod || 'cash',
+            status: 'completed',
+            type: 'final',
+            paymentDate: new Date(),
+            notes: 'Paiement final à la livraison',
+          }, { transaction: t });
+        }
+
+        await delivery.order.update({
+          status: 'delivered',
+          remainingPayment: remainingAmount,
+          paymentStatus: 'fully_paid',
+        }, { transaction: t });
+      }
     }
 
     await delivery.update(req.body, { transaction: t });

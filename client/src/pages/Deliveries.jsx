@@ -102,14 +102,19 @@ export default function Deliveries() {
             {filtered.length > 0 ? filtered.map(d => {
               const reste = d.order ? (Number(d.order.totalPrice || 0) - Number(d.order.advancePayment || 0)) : 0;
               const isDelivered = d.status === 'delivered';
+              const isFullyPaid = isDelivered || d.order?.paymentStatus === 'fully_paid' || reste <= 0;
               return (
               <tr key={d.id}>
                 <td>#{d.id}</td>
                 <td>Commande #{d.orderId}</td>
                 <td style={{fontWeight:600, color:'var(--text-primary)'}}>{d.order?.sofaModel || '—'}</td>
                 <td>{d.driver || '—'}</td>
-                <td style={{fontWeight:700, color: reste <= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}}>
-                  {reste <= 0 ? 'Payé' : `${reste.toLocaleString()} DH`}
+                <td>
+                  {isFullyPaid ? (
+                    <span style={{fontWeight:700, color:'#22c55e', background:'rgba(34,197,94,0.12)', padding:'3px 10px', borderRadius:20, fontSize:13}}>✓ Payé</span>
+                  ) : (
+                    <span style={{fontWeight:700, color:'var(--accent-red)'}}>{reste.toLocaleString()} DH</span>
+                  )}
                 </td>
                 <td>{d.deliveryDate || '—'}</td>
                 <td><span className={`badge badge-${d.status}`}>{d.status === 'scheduled' ? 'Planifiée' : d.status === 'in_transit' ? 'En transit' : d.status === 'delivered' ? 'Livrée' : 'Échouée'}</span></td>

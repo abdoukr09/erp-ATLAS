@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
 import Modal from '../components/Modal';
-import { Plus, Pencil, Trash2, Search, CreditCard } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, CreditCard, CalendarDays } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Finance() {
+  const { hasRole } = useAuth();
   const [payments, setPayments] = useState([]);
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState('');
@@ -42,6 +44,8 @@ export default function Finance() {
   };
 
   const totalRevenue = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + Number(p.amount), 0);
+  const today = new Date().toISOString().split('T')[0];
+  const todayRevenue = payments.filter(p => p.status === 'completed' && p.paymentDate === today).reduce((sum, p) => sum + Number(p.amount), 0);
 
   const filtered = payments.filter(p =>
     p.order?.sofaModel?.toLowerCase()?.includes(search.toLowerCase()) ||
@@ -53,10 +57,19 @@ export default function Finance() {
     <div className="page-transition">
       <div className="stats-grid" style={{marginBottom:24}}>
         <div className="stat-card green animate-in">
-          <div className="stat-icon green"><CreditCard size={24} /></div>
+          <div className="stat-icon green">{hasRole('sales') ? <CalendarDays size={24} /> : <CreditCard size={24} />}</div>
           <div className="stat-info">
-            <h3>{totalRevenue.toLocaleString()} DH</h3>
-            <p>Chiffre d'Affaires</p>
+            {hasRole('sales') ? (
+              <>
+                <h3>{todayRevenue.toLocaleString()} DH</h3>
+                <p>Chiffre d'Affaires (Aujourd'hui)</p>
+              </>
+            ) : (
+              <>
+                <h3>{totalRevenue.toLocaleString()} DH</h3>
+                <p>Chiffre d'Affaires (Total)</p>
+              </>
+            )}
           </div>
         </div>
         <div className="stat-card blue animate-in">
