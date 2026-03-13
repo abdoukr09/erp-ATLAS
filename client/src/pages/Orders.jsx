@@ -10,6 +10,7 @@ export default function Orders() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [customTotal, setCustomTotal] = useState('');
   const [form, setForm] = useState({
     customerId: '', sofaModel: '', quantity: 1, unitPrice: '', 
     discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', 
@@ -175,11 +176,17 @@ export default function Orders() {
           <div className="form-row">
             <div className="form-group">
               <label>Prix unitaire (DA)</label>
-              <input className="form-control" type="number" min="0" placeholder="Prix par unité" value={form.unitPrice} onChange={e => setForm({...form, unitPrice: e.target.value})} />
+              <input className="form-control" type="number" min="0" placeholder="Prix par unité" value={form.unitPrice} onChange={e => {
+                setCustomTotal('');
+                setForm({...form, unitPrice: e.target.value});
+              }} />
             </div>
             <div className="form-group">
               <label>Remise (%)</label>
-              <input className="form-control" type="number" min="0" max="100" step="0.01" value={form.discountPercentage} onChange={e => setForm({...form, discountPercentage: e.target.value})} />
+              <input className="form-control" type="number" min="0" max="100" step="0.01" value={form.discountPercentage} onChange={e => {
+                setCustomTotal('');
+                setForm({...form, discountPercentage: e.target.value});
+              }} />
             </div>
           </div>
           <div className="form-row">
@@ -189,13 +196,19 @@ export default function Orders() {
                 className="form-control" 
                 type="number" 
                 placeholder="Montant total final"
-                value={Math.round((parseInt(form.quantity) || 1) * (parseFloat(form.unitPrice) || 0) * (1 - (parseFloat(form.discountPercentage) || 0) / 100))}
+                value={customTotal !== '' ? customTotal : Math.round((parseInt(form.quantity) || 1) * (parseFloat(form.unitPrice) || 0) * (1 - (parseFloat(form.discountPercentage) || 0) / 100))}
                 onChange={e => {
-                  const val = parseFloat(e.target.value) || 0;
+                  const rawValue = e.target.value;
+                  setCustomTotal(rawValue);
+                  
+                  const val = parseFloat(rawValue);
                   const subtotal = (parseInt(form.quantity) || 1) * (parseFloat(form.unitPrice) || 0);
-                  if (subtotal > 0) {
+                  
+                  if (!isNaN(val) && subtotal > 0) {
                     const discount = (1 - (val / subtotal)) * 100;
                     setForm({ ...form, discountPercentage: parseFloat(discount.toFixed(2)) });
+                  } else if (rawValue === '') {
+                    setForm({ ...form, discountPercentage: 0 });
                   }
                 }}
               />
