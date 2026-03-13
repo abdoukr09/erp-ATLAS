@@ -33,16 +33,34 @@ export default function Catalog() {
     try { const res = await api.get('/materials'); setMaterials(res.data); } catch (err) { console.error(err); }
   };
 
+  const getMirrorName = (name) => {
+    const lower = name.toLowerCase();
+    if (lower.includes('gauche')) return name.replace(/gauche/gi, 'droite');
+    if (lower.includes('droite')) return name.replace(/droite/gi, 'gauche');
+    return null;
+  };
+
   const handleModelSubmit = async () => {
     try {
-      // Ensure basePrice is either a valid number or null
       const payload = {
         ...modelForm,
         basePrice: modelForm.basePrice ? parseFloat(modelForm.basePrice) : null
       };
       
-      if (editingModel) await api.put(`/product-models/${editingModel.id}`, payload);
-      else await api.post('/product-models', payload);
+      if (editingModel) {
+        await api.put(`/product-models/${editingModel.id}`, payload);
+      } else {
+        await api.post('/product-models', payload);
+
+        // Suggest mirror version (gauche ↔ droite)
+        const mirrorName = getMirrorName(modelForm.name);
+        if (mirrorName) {
+          const existing = models.find(m => m.name.toLowerCase() === mirrorName.toLowerCase());
+          if (!existing && confirm(`Voulez-vous aussi créer la version miroir ?\n\n→ "${mirrorName}"\n\n(mêmes propriétés)`)) {
+            await api.post('/product-models', { ...payload, name: mirrorName });
+          }
+        }
+      }
       
       setShowModelModal(false); setEditingModel(null);
       setModelForm({ name: '', category: 'Sofa', description: '', basePrice: '', isPack: false });

@@ -29,10 +29,16 @@ export default function Inventory() {
     try { const res = await api.get('/materials'); setMaterials(res.data); } catch (err) { console.error(err); }
   };
 
+  const getMirrorName = (name) => {
+    const lower = name.toLowerCase();
+    if (lower.includes('gauche')) return name.replace(/gauche/gi, 'droite');
+    if (lower.includes('droite')) return name.replace(/droite/gi, 'gauche');
+    return null;
+  };
+
   const handleSubmit = async () => {
     try {
       const payload = { ...form };
-      // Handle empty optional fields
       if (payload.price === '') payload.price = null;
       if (payload.supplier === '') payload.supplier = null;
 
@@ -40,6 +46,15 @@ export default function Inventory() {
         await api.put(`/materials/${editing.id}`, payload);
       } else {
         await api.post('/materials', payload);
+
+        // Suggest mirror version (gauche ↔ droite)
+        const mirrorName = getMirrorName(form.name);
+        if (mirrorName) {
+          const existing = materials.find(m => m.name.toLowerCase() === mirrorName.toLowerCase());
+          if (!existing && confirm(`Voulez-vous aussi créer la version miroir ?\n\n→ "${mirrorName}"\n\n(mêmes propriétés)`)) {
+            await api.post('/materials', { ...payload, name: mirrorName });
+          }
+        }
       }
       setShowModal(false); setEditing(null);
       setForm({ name: '', category: 'other', stock: '', unit: 'pcs', minStock: '10', price: '', supplier: '' });
