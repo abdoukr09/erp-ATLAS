@@ -86,7 +86,7 @@ router.get('/', authenticate, authorize('admin', 'production', 'gerant'), async 
   }
 });
 
-// POST /api/production
+// POST /api/production — creates in pending, NO material deduction yet
 router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async (req, res) => {
   const t = await Production.sequelize.transaction();
   try {
@@ -98,44 +98,20 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
       return res.status(400).json({ error: 'Order ID or Product Model ID is required.' });
     }
 
-    let targetQuantity = 1;
     if (orderId) {
       const order = await Order.findByPk(orderId, { transaction: t });
-      if (order) {
-        targetQuantity = order.quantity;
-        if (order.status === 'pending') {
-          await order.update({ status: 'in_production' }, { transaction: t });
-        }
+      if (order && order.status === 'pending') {
+        await order.update({ status: 'in_production' }, { transaction: t });
       }
     }
 
-    let materialsDeducted = false;
-    try {
-      materialsDeducted = await deductMaterials(orderId, productModelId, targetQuantity, t);
-    } catch (err) {
-      await t.rollback();
-      return res.status(400).json({ error: err.message });
-    }
-
+    // Force status to pending on creation — materials are deducted when moving to in_progress
     const production = await Production.create({
       orderId, productModelId, stage: stage || 'fabrication', worker, notes,
       startDate: startDate || new Date(),
-      status: status || 'pending',
-      materialsDeducted
+      status: 'pending',
+      materialsDeducted: false
     }, { transaction: t });
-
-    // Side effects for immediate completion
-    if (status === 'completed') {
-      if (orderId) {
-        const order = await Order.findByPk(orderId, { transaction: t });
-        if (order) await order.update({ status: 'ready' }, { transaction: t });
-      } else if (productModelId) {
-        const model = await ProductModel.findByPk(productModelId, { transaction: t });
-        if (model) await model.update({ stock: (model.stock || 0) + 1 }, { transaction: t });
-      }
-      production.endDate = new Date();
-      await production.save({ transaction: t });
-    }
 
     await t.commit();
     res.status(201).json(production);
@@ -161,16 +137,26 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
       return res.status(404).json({ error: 'Production record not found.' });
     }
 
-    // If completing (status === 'completed'), mark order as ready OR increment Model Stock
-    if (req.body.status === 'completed' && production.status !== 'completed') {
-      // 1. Deduct Materials if not yet deducted
-      if (!production.materialsDeducted) {
-        let qty = 1;
-        if (production.order) qty = production.order.quantity;
-        await deductMaterials(production.orderId, production.productModelId, qty, t);
-        production.materialsDeducted = true;
-      }
+    const newStatus = req.body.status;
+    const needsDeduction = !production.materialsDeducted && 
+      (newStatus === 'in_progress' || newStatus === 'completed') &&
+      production.status !== newStatus;
 
+    // Deduct materials when moving to in_progress or completed
+    if (needsDeduction) {
+      let qty = 1;
+      if (production.order) qty = production.order.quantity;
+      try {
+        const deducted = await deductMaterials(production.orderId, production.productModelId, qty, t);
+        req.body.materialsDeducted = deducted;
+      } catch (err) {
+        await t.rollback();
+        return res.status(400).json({ error: err.message });
+      }
+    }
+
+    // If completing, mark order as ready OR increment Model Stock
+    if (newStatus === 'completed' && production.status !== 'completed') {
       if (production.order) {
         await production.order.update({ status: 'ready' }, { transaction: t });
       } else if (production.productModelId) {

@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ShoppingCart, Users, Package,
-  Factory, Truck, CreditCard, Settings, LogOut, Sofa, Book, PackageCheck, Database
+  Factory, Truck, CreditCard, Settings, LogOut, Sofa, Book, PackageCheck
 } from 'lucide-react';
 
 const allNavItems = [
@@ -23,7 +23,6 @@ const allNavItems = [
   ]},
   { section: 'Administration', items: [
     { path: '/users', label: 'Utilisateurs', icon: Settings, roles: ['admin'] },
-    { path: '/database', label: 'Base de données', icon: Database, roles: ['admin'] },
   ]},
 ];
 
@@ -43,7 +42,6 @@ export default function Layout({ children }) {
       '/inventory': 'Matières Premières',
       '/deliveries': 'Livraisons',
       '/users': 'Utilisateurs',
-      '/database': 'Base de données',
     };
     return titles[location.pathname] || 'ERP Le Canapé';
   };

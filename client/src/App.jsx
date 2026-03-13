@@ -5,7 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
 import Orders from './pages/Orders';
-import DatabaseExplorer from './pages/DatabaseExplorer';
+
 import Inventory from './pages/Inventory';
 import Production from './pages/Production';
 import Deliveries from './pages/Deliveries';
@@ -31,7 +31,6 @@ function AppRoutes() {
       <Route path="/finished-products" element={<ProtectedRoute roles={['admin','production','gerant','delivery','sales']}><FinishedProducts /></ProtectedRoute>} />
       <Route path="/deliveries" element={<ProtectedRoute roles={['admin','delivery']}><Deliveries /></ProtectedRoute>} />
       <Route path="/finance" element={<ProtectedRoute roles={['admin','sales']}><Finance /></ProtectedRoute>} />
-      <Route path="/database" element={<ProtectedRoute roles={['admin']}><DatabaseExplorer /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute roles={['admin']}><UsersPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

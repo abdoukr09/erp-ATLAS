@@ -95,13 +95,22 @@ export default function Finance() {
           </div>
         </div>
         <table>
-          <thead><tr><th>ID</th><th>Commande</th><th>Client</th><th>Montant</th><th>Méthode</th><th>Statut</th><th>Date</th><th>Actions</th></tr></thead>
+          <thead><tr><th>ID</th><th>Commande</th><th>Client</th><th>Type</th><th>Montant</th><th>Méthode</th><th>Statut</th><th>Date</th><th>Actions</th></tr></thead>
           <tbody>
             {filtered.length > 0 ? filtered.map(p => (
               <tr key={p.id}>
                 <td>#{p.id}</td>
                 <td>#{p.orderId} - {p.order?.sofaModel || ''}</td>
                 <td style={{fontWeight:600, color:'var(--text-primary)'}}>{p.order?.customer?.name || '—'}</td>
+                <td>
+                  {p.type === 'advance' ? (
+                    <span className="badge badge-blue">Avance</span>
+                  ) : p.type === 'final' ? (
+                    <span style={{fontWeight:700, color:'#22c55e', background:'rgba(34,197,94,0.12)', padding:'3px 10px', borderRadius:20, fontSize:12}}>Paiement Final</span>
+                  ) : (
+                    <span className="badge badge-scheduled">Autre</span>
+                  )}
+                </td>
                 <td style={{fontWeight:700, color:'var(--accent-green)'}}>{Number(p.amount).toLocaleString()} DH</td>
                 <td><span className="badge badge-scheduled">{p.method === 'cash' ? 'Espèces' : p.method === 'bank_transfer' ? 'Virement' : p.method === 'check' ? 'Chèque' : 'Carte'}</span></td>
                 <td><span className={`badge badge-${p.status}`}>{p.status === 'completed' ? 'Complété' : p.status === 'pending' ? 'En attente' : 'Échoué'}</span></td>
@@ -114,7 +123,7 @@ export default function Finance() {
                 </td>
               </tr>
             )) : (
-              <tr><td colSpan="8" className="table-empty"><CreditCard size={32} style={{color:'var(--text-muted)'}} /><p>Aucun paiement enregistré</p></td></tr>
+              <tr><td colSpan="9" className="table-empty"><CreditCard size={32} style={{color:'var(--text-muted)'}} /><p>Aucun paiement enregistré</p></td></tr>
             )}
           </tbody>
         </table>
