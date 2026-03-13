@@ -113,7 +113,7 @@ export default function Dashboard() {
             <p>Clients</p>
           </div>
         </div>
-        {hasRole('admin', 'gerant') && (
+        {hasRole('admin') && (
           <div className="stat-card green animate-in">
             <div className="stat-icon green"><TrendingUp size={24} /></div>
             <div className="stat-info">
@@ -122,7 +122,7 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        {hasRole('admin', 'gerant') && (
+        {hasRole('admin') && (
           <div className="stat-card blue animate-in" style={{background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.15) 100%)'}}>
             <div className="stat-icon blue"><Banknote size={24} /></div>
             <div className="stat-info">
@@ -131,7 +131,7 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        {hasRole('admin', 'gerant') && (
+        {hasRole('admin') && (
           <div className="stat-card green animate-in" style={{background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(34, 197, 94, 0.15) 100%)'}}>
             <div className="stat-icon green"><CreditCard size={24} /></div>
             <div className="stat-info">
@@ -140,7 +140,7 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        {(hasRole('admin', 'sales', 'gerant')) && (
+        {hasRole('admin') && (
           <div className="stat-card green animate-in" style={{background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(34, 197, 94, 0.15) 100%)'}}>
             <div className="stat-icon green"><CalendarDays size={24} /></div>
             <div className="stat-info">
@@ -166,7 +166,7 @@ export default function Dashboard() {
       </div>
 
       <div className="charts-grid">
-        {hasRole('admin', 'gerant') && (
+        {hasRole('admin') && (
           <div className="chart-card">
             <h3>Revenus Mensuels — Avances vs Paiements Finaux (DA)</h3>
             {stackedBarData.length > 0 ? (

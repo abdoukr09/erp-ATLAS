@@ -56,22 +56,15 @@ export default function Finance() {
   return (
     <div className="page-transition">
       <div className="stats-grid" style={{marginBottom:24}}>
-        <div className="stat-card green animate-in">
-          <div className="stat-icon green">{hasRole('sales') ? <CalendarDays size={24} /> : <CreditCard size={24} />}</div>
-          <div className="stat-info">
-            {hasRole('sales') ? (
-              <>
-                <h3>{todayRevenue.toLocaleString()} DA</h3>
-                <p>Chiffre d'Affaires (Aujourd'hui)</p>
-              </>
-            ) : (
-              <>
-                <h3>{totalRevenue.toLocaleString()} DA</h3>
-                <p>Chiffre d'Affaires (Total)</p>
-              </>
-            )}
+        {hasRole('admin') && (
+          <div className="stat-card green animate-in">
+            <div className="stat-icon green"><CreditCard size={24} /></div>
+            <div className="stat-info">
+              <h3>{totalRevenue.toLocaleString()} DA</h3>
+              <p>Chiffre d'Affaires (Total)</p>
+            </div>
           </div>
-        </div>
+        )}
         <div className="stat-card blue animate-in">
           <div className="stat-icon blue"><CreditCard size={24} /></div>
           <div className="stat-info">
