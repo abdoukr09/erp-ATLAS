@@ -10,6 +10,7 @@ const ModelMaterial = require('./ModelMaterial');
 const PackItem = require('./PackItem');
 const Expense = require('./Expense');
 const Employee = require('./Employee');
+const EmployeePayment = require('./EmployeePayment');
 
 // Associations
 Customer.hasMany(Order, { foreignKey: 'customerId', as: 'orders' });
@@ -23,6 +24,10 @@ Delivery.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
 
 Order.hasMany(Payment, { foreignKey: 'orderId', as: 'payments', onDelete: 'CASCADE' });
 Payment.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
+
+// Employee Associations
+Employee.hasMany(EmployeePayment, { foreignKey: 'employeeId', as: 'payments', onDelete: 'CASCADE' });
+EmployeePayment.belongsTo(Employee, { foreignKey: 'employeeId', as: 'employee' });
 
 // BOM Associations
 ProductModel.belongsToMany(Material, { through: ModelMaterial, foreignKey: 'modelId', as: 'materials' });
@@ -56,4 +61,5 @@ module.exports = {
   PackItem,
   Expense,
   Employee,
+  EmployeePayment,
 };

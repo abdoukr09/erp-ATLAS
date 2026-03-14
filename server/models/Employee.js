@@ -16,11 +16,6 @@ const Employee = sequelize.define('Employee', {
     allowNull: true,
     defaultValue: 'Ouvrier', // Menuisier, Tapissier, Coupeur, Chauffeur, Vendeur...
   },
-  monthlySalary: {
-    type: DataTypes.DECIMAL(10, 2),
-    allowNull: true,
-    defaultValue: 0,
-  },
   insuranceCost: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: true,

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
 import Modal from '../components/Modal';
-import { Plus, Trash2, Pencil, Briefcase, Receipt, TrendingUp, AlertTriangle } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Plus, Trash2, Pencil, Briefcase, Receipt, DollarSign } from 'lucide-react';
 
 export default function Tariffs() {
   const [employees, setEmployees] = useState([]);
@@ -12,7 +11,11 @@ export default function Tariffs() {
   
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
-  const [employeeForm, setEmployeeForm] = useState({ name: '', category: 'Ouvrier', monthlySalary: 0, insuranceCost: 0, notes: '' });
+  const [employeeForm, setEmployeeForm] = useState({ name: '', category: 'Ouvrier', insuranceCost: 0, notes: '' });
+
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({ amount: 0, date: new Date().toISOString().split('T')[0], description: '' });
 
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseForm, setExpenseForm] = useState({ name: '', amount: 0, date: new Date().toISOString().split('T')[0], category: 'Loyer', description: '' });
@@ -57,6 +60,24 @@ export default function Tariffs() {
     } catch (err) { alert('Error deleting employee'); }
   };
 
+  // --- PAYMENTS LOGIC ---
+  const handlePaymentSubmit = async () => {
+    try {
+      await api.post(`/tariffs/employees/${selectedEmployee.id}/payments`, paymentForm);
+      setShowPaymentModal(false);
+      setPaymentForm({ amount: 0, date: new Date().toISOString().split('T')[0], description: '' });
+      fetchData();
+    } catch (err) { alert('Error recording payment'); }
+  };
+
+  const deletePayment = async (empId, payId) => {
+     if(!confirm("Annuler ce paiement ?")) return;
+     try {
+         await api.delete(`/tariffs/employees/${empId}/payments/${payId}`);
+         fetchData();
+     } catch(err) { alert('Error deleting payment'); }
+  };
+
   // --- EXPENSES LOGIC ---
   const handleExpenseSubmit = async () => {
     try {
@@ -77,19 +98,11 @@ export default function Tariffs() {
 
   if (loading) return <div className="page-transition" style={{textAlign:'center', padding:'50px'}}>Chargement des données financières...</div>;
 
-  const totalEmpCost = employees.reduce((acc, emp) => acc + Number(emp.monthlySalary) + Number(emp.insuranceCost), 0);
-
-  // Simplified chart data for demonstration
-  const chartData = [
-    { name: 'Coûts (Matières, Salaires..)', value: profitSummary ? profitSummary.costs.materials + profitSummary.costs.expenses + profitSummary.costs.labor : 0 },
-    { name: 'Bénéfice Réel', value: profitSummary ? profitSummary.netProfit : 0 }
-  ];
-
   return (
     <div className="page-transition">
       <div className="table-header" style={{ marginBottom: '30px' }}>
         <h2>Tarifs & Rentabilité</h2>
-        <p style={{color:'var(--text-muted)'}}>Calculez votre bénéfice réel en déduisant les salaires, les charges fixes et le coût des matières achetées.</p>
+        <p style={{color:'var(--text-muted)'}}>Calculez votre bénéfice réel basé sur les paiements réels, les charges et le coût théorique des matières.</p>
       </div>
 
       {profitSummary && (
@@ -110,9 +123,9 @@ export default function Tariffs() {
           </div>
           <div className="stat-card purple animate-in">
              <div className="stat-info">
-               <h3 style={{fontSize: '1.5rem'}}>- {(Number(profitSummary.costs.expenses) + Number(profitSummary.costs.labor)).toLocaleString()} DA</h3>
-               <p>Charges & Salaires</p>
-               <small style={{color:'var(--text-muted)'}}>(Charges fixes + Masse salariale)</small>
+               <h3 style={{fontSize: '1.5rem'}}>- {Number(profitSummary.costs.expenses + profitSummary.costs.labor).toLocaleString()} DA</h3>
+               <p>Charges & Paiements</p>
+               <small style={{color:'var(--text-muted)'}}>(Dépenses + Paiements employés)</small>
              </div>
           </div>
           <div className="stat-card green animate-in" style={{background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.2) 100%)', border: '1px solid rgba(34, 197, 94, 0.3)'}}>
@@ -129,13 +142,13 @@ export default function Tariffs() {
         {/* EMPLOYEES TABLE */}
         <div className="table-container">
           <div className="table-header">
-            <h3><Briefcase size={20} style={{marginRight: 8, verticalAlign:'middle'}}/> Employés & Salaires</h3>
+            <h3><Briefcase size={20} style={{marginRight: 8, verticalAlign:'middle'}}/> Employés & Paiements</h3>
             <button className="btn btn-primary" onClick={() => { 
                 setEditingEmployee(null); 
-                setEmployeeForm({ name: '', category: 'Ouvrier', monthlySalary: 0, insuranceCost: 0, notes: '' });
+                setEmployeeForm({ name: '', category: 'Ouvrier', insuranceCost: 0, notes: '' });
                 setShowEmployeeModal(true); 
             }}>
-              <Plus size={16} /> Ajouter
+              <Plus size={16} /> Ajouter Employé
             </button>
           </div>
           <table>
@@ -143,44 +156,39 @@ export default function Tariffs() {
               <tr>
                 <th>Nom</th>
                 <th>Rôle</th>
-                <th>Salaire</th>
-                <th>Assurance</th>
-                <th>Total / Mois</th>
+                <th>Assurance (Fixe)</th>
+                <th>Total Payé</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {employees.length > 0 ? employees.map(e => (
+              {employees.length > 0 ? employees.map(e => {
+                const totalPaid = e.payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+                return (
                 <tr key={e.id}>
                   <td style={{fontWeight:600}}>{e.name}</td>
                   <td><span className="badge badge-scheduled">{e.category}</span></td>
-                  <td>{Number(e.monthlySalary).toLocaleString()} DA</td>
                   <td>{Number(e.insuranceCost).toLocaleString()} DA</td>
-                  <td style={{fontWeight:700, color:'#ef4444'}}>{(Number(e.monthlySalary) + Number(e.insuranceCost)).toLocaleString()} DA</td>
+                  <td style={{fontWeight:700, color:'#10b981'}}>{totalPaid.toLocaleString()} DA</td>
                   <td>
                     <div className="action-buttons">
+                      <button className="btn-icon success" onClick={() => { setSelectedEmployee(e); setShowPaymentModal(true); }} title="Enregistrer un paiement"><DollarSign size={14} /></button>
                       <button className="btn-icon edit" onClick={() => { setEditingEmployee(e); setEmployeeForm(e); setShowEmployeeModal(true); }}><Pencil size={14} /></button>
                       <button className="btn-icon danger" onClick={() => handleEmployeeDelete(e.id)}><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
-              )) : (
-                <tr><td colSpan="6" className="table-empty"><p>Aucun employé enregistré</p></td></tr>
+              )}) : (
+                <tr><td colSpan="5" className="table-empty"><p>Aucun employé enregistré</p></td></tr>
               )}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan="4" style={{textAlign:'right', fontWeight:700}}>Masse Salariale Totale :</td>
-                <td colSpan="2" style={{fontWeight:800, color:'#ef4444', fontSize:'1.1rem'}}>{totalEmpCost.toLocaleString()} DA / Mois</td>
-              </tr>
-            </tfoot>
           </table>
         </div>
 
         {/* EXPENSES TABLE */}
         <div className="table-container">
           <div className="table-header">
-            <h3><Receipt size={20} style={{marginRight: 8, verticalAlign:'middle'}}/> Charges & Dépenses</h3>
+            <h3><Receipt size={20} style={{marginRight: 8, verticalAlign:'middle'}}/> Charges & Dépenses Libres</h3>
             <button className="btn btn-primary" onClick={() => setShowExpenseModal(true)}>
               <Plus size={16} /> Ajouter Dépense
             </button>
@@ -237,37 +245,59 @@ export default function Tariffs() {
               <label>Rôle / Catégorie</label>
               <input className="form-control" placeholder="Ex: Tapissier, Coupeur..." value={employeeForm.category} onChange={e => setEmployeeForm({...employeeForm, category: e.target.value})} />
             </div>
-          </div>
-          <div className="form-row">
             <div className="form-group">
-              <label>Salaire Mensuel (DA)</label>
-              <input className="form-control" type="number" min="0" value={employeeForm.monthlySalary} onChange={e => setEmployeeForm({...employeeForm, monthlySalary: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>Coût Assurance (DA)</label>
+              <label>Coût Assurance (Fixe / An)</label>
               <input className="form-control" type="number" min="0" value={employeeForm.insuranceCost} onChange={e => setEmployeeForm({...employeeForm, insuranceCost: e.target.value})} />
             </div>
           </div>
-          <p style={{fontSize:'0.85rem', color:'var(--text-muted)'}}>Mettez 0 si l'employé est payé à la tâche (cela n'impactera pas les frais fixes).</p>
+        </Modal>
+      )}
+
+      {showPaymentModal && selectedEmployee && (
+        <Modal title={`Payer: ${selectedEmployee.name}`} onClose={() => setShowPaymentModal(false)} onSubmit={handlePaymentSubmit}>
+          
+          <div className="table-container" style={{marginBottom: '20px', maxHeight: '150px', overflowY: 'auto'}}>
+            <table style={{fontSize: '0.85rem'}}>
+               <thead><tr><th>Date</th><th>Motif</th><th>Montant</th><th></th></tr></thead>
+               <tbody>
+                 {selectedEmployee.payments?.map(p => (
+                    <tr key={p.id}>
+                      <td>{p.date}</td><td>{p.description}</td>
+                      <td style={{color:'#10b981', fontWeight:'bold'}}>{Number(p.amount).toLocaleString()} DA</td>
+                      <td><button type="button" className="btn-icon danger" style={{padding:0}} onClick={() => deletePayment(selectedEmployee.id, p.id)}><Trash2 size={12}/></button></td>
+                    </tr>
+                 ))}
+               </tbody>
+            </table>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Date du paiement</label>
+              <input className="form-control" type="date" value={paymentForm.date} onChange={e => setPaymentForm({...paymentForm, date: e.target.value})} required />
+            </div>
+            <div className="form-group">
+              <label>Montant (DA) *</label>
+              <input className="form-control" type="number" min="0" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} required />
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Description / Motif (Optionnel)</label>
+            <input className="form-control" placeholder="Ex: Salaire du mois, Avance pour la tâche X..." value={paymentForm.description} onChange={e => setPaymentForm({...paymentForm, description: e.target.value})} />
+          </div>
         </Modal>
       )}
 
       {showExpenseModal && (
-        <Modal title="Nouvelle Charge / Dépense" onClose={() => setShowExpenseModal(false)} onSubmit={handleExpenseSubmit}>
+        <Modal title="Nouvelle Charge / Dépense Libre" onClose={() => setShowExpenseModal(false)} onSubmit={handleExpenseSubmit}>
           <div className="form-group">
             <label>Intitulé de la dépense *</label>
-            <input className="form-control" placeholder="Ex: Facture Sonelgaz, Loyer Showroom..." value={expenseForm.name} onChange={e => setExpenseForm({...expenseForm, name: e.target.value})} required />
+            <input className="form-control" placeholder="Ex: Facture Sonelgaz, Achat fourniture..." value={expenseForm.name} onChange={e => setExpenseForm({...expenseForm, name: e.target.value})} required />
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Catégorie</label>
-              <select className="form-control" value={expenseForm.category} onChange={e => setExpenseForm({...expenseForm, category: e.target.value})}>
-                <option value="Loyer">Loyer</option>
-                <option value="Electricite/Eau">Électricité / Eau</option>
-                <option value="Transport">Transport / Carburant</option>
-                <option value="Marketing">Marketing / Pub</option>
-                <option value="Autre">Autre Frais Fixe</option>
-              </select>
+              <label>Catégorie Libre</label>
+              <input className="form-control" placeholder="Ex: Loyer, Transport, Divers..." value={expenseForm.category} onChange={e => setExpenseForm({...expenseForm, category: e.target.value})} required />
             </div>
             <div className="form-group">
               <label>Date</label>
