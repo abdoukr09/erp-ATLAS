@@ -58,6 +58,10 @@ export default function Employees() {
       setPerfLoading(false);
     }
   };
+  
+  const totalSalesFinal = performanceData.sales?.reduce((sum, s) => sum + Number(s.finalPrice || s.totalPrice || 0), 0) || 0;
+  const totalProductionValue = performanceData.productions?.reduce((sum, p) => sum + (Number(p.basePrice || 0) * Number(p.quantity || 1)), 0) || 0;
+  const totalActivityVolume = totalSalesFinal + totalProductionValue;
 
   useEffect(() => {
     if (selectedEmployee) {
@@ -84,17 +88,11 @@ export default function Employees() {
   };
 
   const openPaymentModal = () => {
-    // Determine suggested payment by looking at total performance vs profile rate
-    // We base it on total final sales + total production value
-    const totalSalesFinal = performanceData.sales?.reduce((sum, s) => sum + Number(s.finalPrice || s.totalPrice || 0), 0) || 0;
-    const totalProductionValue = performanceData.productions?.reduce((sum, p) => sum + (Number(p.basePrice || 0) * Number(p.quantity || 1)), 0) || 0;
-    
-    const totalVolume = totalSalesFinal + totalProductionValue;
-    totalCalculatedBonus = totalVolume * (Number(selectedEmployee.commissionRate || 0) / 100);
+    const suggestedBonus = totalActivityVolume * (Number(selectedEmployee.commissionRate || 0) / 100);
 
     setPaymentForm({
         baseAmount: Number(selectedEmployee.baseSalary) || 0,
-        bonusAmount: Math.round(totalCalculatedBonus),
+        bonusAmount: Math.round(suggestedBonus),
         date: new Date().toISOString().split('T')[0],
         description: `Salaire + Prime (${selectedMonth})`,
         type: 'percentage', // Default back to admin-percentage-decision
@@ -215,7 +213,7 @@ export default function Employees() {
                      <div>
                        <h5 style={{fontSize:'0.9rem', marginBottom:5, color:'var(--text-secondary)'}}>Production (Ouvriers / Artisans)</h5>
                        <table style={{fontSize: '0.85rem'}}>
-                         <thead><tr><th>Date</th><th>Commande/Modèle</th><th>Tâche</th></tr></thead>
+                         <thead><tr><th>Date</th><th>Commande/Modèle</th></tr></thead>
                          <tbody>
                           {(performanceData.productions || []).length > 0 ? (performanceData.productions || []).map(p => (
                             <tr key={p.id}>
@@ -223,10 +221,9 @@ export default function Employees() {
                               <td style={{fontWeight: 600}}>
                                 {p.orderId ? `Cde #${p.orderId} (${Number(p.basePrice || 0).toLocaleString()} DA)` : (p.productModel?.name || 'Stock')}
                               </td>
-                              <td>{p.taskName || 'Fabrication'}</td>
                             </tr>
                           )) : (
-                            <tr><td colSpan="3" style={{textAlign:'center', color:'var(--text-muted)'}}>Aucune production ce mois-ci.</td></tr>
+                            <tr><td colSpan="2" style={{textAlign:'center', color:'var(--text-muted)'}}>Aucune production ce mois-ci.</td></tr>
                           )}
                          </tbody>
                        </table>
@@ -357,11 +354,7 @@ export default function Employees() {
                   ✏️ Saisir / Forcer un montant
                 </button>
                 <button type="button" className={`btn ${paymentForm.type === 'percentage' ? 'btn-primary' : 'btn-outline'}`} onClick={() => {
-                  const totalSalesFinal = performanceData.sales?.reduce((sum, s) => sum + Number(s.finalPrice || s.totalPrice), 0) || 0;
-                  const totalProductions = performanceData.productions?.reduce((sum, p) => sum + p.quantity, 0) || 0;
-                  const totalPerformance = totalSalesFinal > 0 ? totalSalesFinal : (totalProductions * 1000); 
-                  
-                  const calcBonus = totalPerformance * (paymentForm.customRate / 100);
+                  const calcBonus = totalActivityVolume * (paymentForm.customRate / 100);
                   setPaymentForm({...paymentForm, type: 'percentage', bonusAmount: Math.round(calcBonus)});
                 }}>
                   📊 Calculer avec un pourcentage (Admin Seul)
@@ -390,12 +383,7 @@ export default function Employees() {
                     if (isNaN(parsedRate)) parsedRate = 0;
                     
                     const rate = Math.round(parsedRate * 100) / 100;
-                    
-                    const totalSalesFinal = performanceData.sales?.reduce((sum, s) => sum + Number(s.finalPrice || s.totalPrice), 0) || 0;
-                    const totalProductions = performanceData.productions?.reduce((sum, p) => sum + p.quantity, 0) || 0;
-                    const totalPerformance = totalSalesFinal > 0 ? totalSalesFinal : (totalProductions * 1000); 
-                    
-                    const calcBonus = totalPerformance * (rate / 100);
+                    const calcBonus = totalActivityVolume * (rate / 100);
                     // Use the exact typed string to prevent jumps, but calculate with the clean rate
                     setPaymentForm({...paymentForm, customRate: e.target.value, bonusAmount: Math.round(calcBonus)});
                   }} />
@@ -403,8 +391,8 @@ export default function Employees() {
                     = <strong style={{color:'var(--primary-color)'}}>{Number(paymentForm.bonusAmount).toLocaleString()} DA</strong> de prime calculée
                   </div>
                 </div>
-                <div style={{fontSize:'0.8rem', color:'var(--text-muted)', marginTop:4}}>
-                  Basé sur : {performanceData.sales?.length > 0 ? `${(performanceData.sales.reduce((sum, s) => sum + Number(s.finalPrice || s.totalPrice), 0)).toLocaleString()} DA de ventes` : `${performanceData.productions?.reduce((sum, p) => sum + p.quantity, 0) || 0} articles fabriqués (Volume estimé)`}
+                 <div style={{fontSize:'0.8rem', color:'var(--text-muted)', marginTop:4}}>
+                  Basé sur : {totalActivityVolume.toLocaleString()} DA de volume d'activité
                 </div>
               </div>
             )}

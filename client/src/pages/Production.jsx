@@ -121,7 +121,7 @@ export default function Production() {
               <th>Cible / Commande</th>
               <th>Client</th>
               <th>Modèle</th>
-              <th>Ouvrier (Acheminement)</th>
+              <th>Ouvrier</th>
               <th>Statut</th>
               <th>Actions</th>
             </tr>
@@ -224,6 +224,7 @@ export default function Production() {
                           const newTasks = [...form.tasks];
                           newTasks[index].completedById = val;
                           newTasks[index].workerName = emp ? emp.name : '';
+                          newTasks[index].taskName = 'Fabrication'; // Default task name
                           setForm({...form, tasks: newTasks});
                         }}>
                           <option value="">-- Choisir --</option>
@@ -231,14 +232,6 @@ export default function Production() {
                             <option key={e.id} value={e.id}>{e.name} ({e.category})</option>
                           ))}
                         </select>
-                      </div>
-                      <div className="form-group" style={{marginBottom:0}}>
-                        <label style={{fontSize:'0.8rem'}}>Nature (ex: Tapissage)</label>
-                        <input className="form-control" placeholder="Tâche..." value={task.taskName} onChange={e => {
-                          const newTasks = [...form.tasks];
-                          newTasks[index].taskName = e.target.value;
-                          setForm({...form, tasks: newTasks});
-                        }} />
                       </div>
                     </div>
                   </div>
