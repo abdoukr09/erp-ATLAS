@@ -159,6 +159,8 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
         }
       }
       req.body.endDate = new Date();
+      req.body.completionDate = new Date();
+      if(req.body.completedById === '') req.body.completedById = null;
     }
 
     await production.update(req.body, { transaction: t });

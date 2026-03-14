@@ -25,6 +25,7 @@ app.use('/api/payments', require('./routes/payments'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/product-models', require('./routes/productModels'));
 app.use('/api/tariffs', require('./routes/tariffs'));
+app.use('/api/employees', require('./routes/employees'));
 
 // Health check
 app.get('/api/health', (req, res) => {

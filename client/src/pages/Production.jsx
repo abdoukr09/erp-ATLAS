@@ -12,10 +12,10 @@ export default function Production() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [isStockProduction, setIsStockProduction] = useState(false);
-  const [form, setForm] = useState({ orderId: '', productModelId: '', stage: 'fabrication', worker: '', status: 'in_progress', notes: '' });
+  const [employees, setEmployees] = useState([]);
+  const [form, setForm] = useState({ orderId: '', productModelId: '', stage: 'fabrication', worker: '', status: 'in_progress', notes: '', completedById: '' });
 
-  useEffect(() => { fetchProductions(); fetchOrders(); fetchProductModels(); }, []);
+  useEffect(() => { fetchProductions(); fetchOrders(); fetchProductModels(); fetchEmployees(); }, []);
 
   const fetchProductions = async () => {
     try { const res = await api.get('/production'); setProductions(res.data); } catch (err) { console.error(err); }
@@ -29,12 +29,17 @@ export default function Production() {
     try { const res = await api.get('/product-models'); setProductModels(res.data); } catch (err) { console.error(err); }
   };
 
+  const fetchEmployees = async () => {
+    try { const res = await api.get('/employees'); setEmployees(res.data); } catch (err) { console.error('Failed to parse workers'); }
+  }
+
   const handleSubmit = async () => {
     try {
       const sanitizedForm = {
         ...form,
         orderId: form.orderId === '' ? null : form.orderId,
-        productModelId: form.productModelId === '' ? null : form.productModelId
+        productModelId: form.productModelId === '' ? null : form.productModelId,
+        completedById: form.completedById === '' ? null : form.completedById
       };
       if (editing) {
         // If marking as completed
@@ -46,7 +51,7 @@ export default function Production() {
         await api.post('/production', isStockProduction ? { ...sanitizedForm, orderId: null } : { ...sanitizedForm, productModelId: null });
       }
       setShowModal(false); setEditing(null);
-      setForm({ orderId: '', productModelId: '', stage: 'fabrication', worker: '', status: 'in_progress', notes: '' });
+      setForm({ orderId: '', productModelId: '', stage: 'fabrication', worker: '', status: 'in_progress', notes: '', completedById: '' });
       fetchProductions();
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
@@ -60,7 +65,8 @@ export default function Production() {
       stage: p.stage, 
       worker: p.worker || '', 
       status: p.status, 
-      notes: p.notes || '' 
+      notes: p.notes || '',
+      completedById: p.completedById || ''
     });
     setShowModal(true);
   };
@@ -96,7 +102,7 @@ export default function Production() {
             <button className="btn btn-primary" onClick={() => { 
                 setEditing(null); 
                 setIsStockProduction(false);
-                setForm({ orderId: '', productModelId: '', stage: 'fabrication', worker: '', status: 'in_progress', notes: '' }); 
+                setForm({ orderId: '', productModelId: '', stage: 'fabrication', worker: '', status: 'in_progress', notes: '', completedById: '' }); 
                 setShowModal(true); 
               }}>
               <Plus size={16} /> Lancer Fabrication
@@ -110,7 +116,7 @@ export default function Production() {
               <th>Cible / Commande</th>
               <th>Client</th>
               <th>Modèle</th>
-              <th>Ouvrier</th>
+              <th>Ouvrier (Acheminement)</th>
               <th>Statut</th>
               <th>Actions</th>
             </tr>
@@ -182,10 +188,27 @@ export default function Production() {
                 <option value="completed">Terminé (Prêt pour Stock)</option>
               </select>
             </div>
-          <div className="form-group">
-            <label>Ouvrier</label>
-            <input className="form-control" placeholder="Nom de l'ouvrier" value={form.worker} onChange={e => setForm({...form, worker: e.target.value})} />
-          </div>
+            
+            {form.status === 'completed' && (
+              <div className="form-group alert-info" style={{background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '15px', borderRadius: '8px'}}>
+                 <label style={{color: '#059669', marginBottom: '8px', display: 'block'}}><strong>Ouvrier récompensé (Optionnel)</strong></label>
+                 <select className="form-control" value={form.completedById} onChange={e => setForm({...form, completedById: e.target.value})}>
+                    <option value="">-- Ne créditer aucun employé --</option>
+                    {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.category})</option>)}
+                 </select>
+                 <p style={{fontSize: '0.8rem', marginTop: '8px', marginBottom: 0, color: 'var(--text-muted)'}}>
+                    En sélectionnant un employé, ce produit sera ajouté à sa fiche de production mensuelle dans la rubrique <strong>Personnel & Paie</strong> pour le calcul des primes.
+                 </p>
+              </div>
+            )}
+
+            {form.status !== 'completed' && (
+              <div className="form-group">
+                <label>Nom ou Note d'Ouvrier (Libre)</label>
+                <input className="form-control" placeholder="Acheminé vers..." value={form.worker} onChange={e => setForm({...form, worker: e.target.value})} />
+              </div>
+            )}
+            
           <div className="form-group">
             <label>Notes</label>
             <textarea className="form-control" placeholder="Notes de fabrication" value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} />

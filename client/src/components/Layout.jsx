@@ -2,55 +2,60 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ShoppingCart, Users, Package,
-  Factory, Truck, CreditCard, Settings, LogOut, Sofa, Book, PackageCheck, Receipt
+  Factory, Truck, CreditCard, Settings, LogOut, Sofa, Book, PackageCheck, Receipt,
+  BookOpen, Box, Briefcase, ShieldCheck, Database
 } from 'lucide-react';
 
-const allNavItems = [
-  { section: 'Principal', items: [
-    { path: '/', label: 'Tableau de bord', icon: LayoutDashboard, roles: ['admin', 'sales', 'gerant', 'production'] },
-  ]},
-  { section: 'Commerce', items: [
-    { path: '/orders', label: 'Commandes', icon: ShoppingCart, roles: ['admin', 'sales', 'gerant'] },
-    { path: '/customers', label: 'Clients', icon: Users, roles: ['admin', 'sales', 'gerant'] },
-    { path: '/catalog', label: 'Catalogue', icon: Book, roles: ['admin', 'production', 'gerant', 'sales'] },
-    { path: '/finance', label: 'Finances', icon: CreditCard, roles: ['admin', 'sales', 'gerant'] },
-  ]},
-  { section: 'Opérations', items: [
-    { path: '/production', label: 'Fabrication', icon: Factory, roles: ['admin', 'production', 'gerant'] },
-    { path: '/finished-products', label: 'Stock (Produits Finis)', icon: PackageCheck, roles: ['admin', 'production', 'gerant', 'delivery', 'sales'] },
-    { path: '/inventory', label: 'Matières Premières', icon: Package, roles: ['admin', 'production', 'gerant'] },
-    { path: '/deliveries', label: 'Livraisons', icon: Truck, roles: ['admin', 'delivery'] },
-  ]},
-  { section: 'Administration', items: [
-    { path: '/tariffs', label: 'Tarifs & Coûts', icon: Receipt, roles: ['admin'] },
-    { path: '/users', label: 'Utilisateurs', icon: Settings, roles: ['admin'] },
-  ]},
+const menuItems = [
+  { section: 'Principal', icon: LayoutDashboard, label: 'Tableau de bord', path: '/', roles: ['admin', 'gerant', 'production', 'sales', 'delivery'] },
+  { section: 'Commerce', icon: BookOpen, label: 'Catalogue', path: '/catalog', roles: ['admin', 'sales', 'gerant'] },
+  { section: 'Commerce', icon: Users, label: 'Clients', path: '/customers', roles: ['admin', 'sales', 'gerant'] },
+  { section: 'Commerce', icon: ShoppingCart, label: 'Commandes', path: '/orders', roles: ['admin', 'sales', 'gerant'] },
+  { section: 'Commerce', icon: CreditCard, label: 'Finances', path: '/finance', roles: ['admin', 'sales', 'gerant'] },
+  { section: 'Opérations', icon: Box, label: 'Matières Premières', path: '/inventory', roles: ['admin', 'production', 'gerant'] },
+  { section: 'Opérations', icon: PackageCheck, label: 'Stock (Produits Finis)', path: '/finished-products', roles: ['admin', 'production', 'gerant', 'delivery', 'sales'] },
+  { section: 'Opérations', icon: Factory, label: 'Fabrication', path: '/production', roles: ['admin', 'production', 'gerant'] },
+  { section: 'Opérations', icon: Truck, label: 'Livraisons', path: '/deliveries', roles: ['admin', 'delivery', 'gerant'] },
+  { section: 'Administration', icon: Briefcase, label: 'Personnel & Paie', path: '/employees', roles: ['admin', 'gerant'] },
+  { section: 'Administration', icon: Receipt, label: 'Tarifs & Coûts', path: '/tariffs', roles: ['admin'] },
+  { section: 'Administration', icon: ShieldCheck, label: 'Utilisateurs', path: '/users', roles: ['admin'] },
+  { section: 'Administration', icon: Database, label: 'Base de Données', path: '/db-explorer', roles: ['admin'] },
 ];
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
 
-  const getPageTitle = () => {
-    const ObjectTitles = {
-      '/': 'Tableau de bord',
-      '/orders': 'Commandes',
-      '/customers': 'Clients',
-      '/catalog': 'Catalogue Produits',
-      '/finance': 'Finances',
-      '/production': 'Fabrication',
-      '/finished-products': 'Stock (Produits Finis)',
-      '/inventory': 'Matières Premières',
-      '/deliveries': 'Livraisons',
-      '/tariffs': 'Tarifs & Coûts',
-      '/users': 'Utilisateurs',
-    };
-    return ObjectTitles[location.pathname] || 'ERP Le Canapé';
+  const getPageTitle = (path) => {
+    switch(path) {
+      case '/': return 'Tableau de bord';
+      case '/catalog': return 'Catalogue de Modèles';
+      case '/customers': return 'Gestion des Clients';
+      case '/orders': return 'Suivi des Commandes';
+      case '/finance': return 'Rapports Financiers';
+      case '/inventory': return 'Stock Matières Premières';
+      case '/finished-products': return 'Stock Modèles Finis';
+      case '/production': return 'Suivi de Production';
+      case '/deliveries': return 'Bons de Livraison';
+      case '/employees': return 'Personnel & Paie';
+      case '/tariffs': return 'Suivi des Dépenses';
+      case '/users': return 'Comptes Utilisateurs';
+      case '/db-explorer': return 'Maintenance Base de données';
+      default: return 'ERP Le Canapé';
+    }
   };
 
   const getInitials = (name) => {
     return name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?';
   };
+
+  const groupedMenuItems = menuItems.reduce((acc, item) => {
+    if (!acc[item.section]) {
+      acc[item.section] = [];
+    }
+    acc[item.section].push(item);
+    return acc;
+  }, {});
 
   return (
     <div className="app-layout">

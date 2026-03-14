@@ -25,6 +25,11 @@ const Expense = sequelize.define('Expense', {
     allowNull: false,
     defaultValue: 'other',
   },
+  frequency: {
+    type: DataTypes.ENUM('daily', 'monthly', 'yearly'),
+    allowNull: false,
+    defaultValue: 'monthly',
+  },
   description: {
     type: DataTypes.TEXT,
     allowNull: true,
