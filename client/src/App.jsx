@@ -13,6 +13,7 @@ import Finance from './pages/Finance';
 import Catalog from './pages/Catalog';
 import FinishedProducts from './pages/FinishedProducts';
 import UsersPage from './pages/Users';
+import Tariffs from './pages/Tariffs';
 import './index.css';
 
 function AppRoutes() {
@@ -31,6 +32,7 @@ function AppRoutes() {
       <Route path="/finished-products" element={<ProtectedRoute roles={['admin', 'production', 'gerant', 'delivery', 'sales']}><FinishedProducts /></ProtectedRoute>} />
       <Route path="/deliveries" element={<ProtectedRoute roles={['admin', 'delivery']}><Deliveries /></ProtectedRoute>} />
       <Route path="/finance" element={<ProtectedRoute roles={['admin', 'sales', 'gerant']}><Finance /></ProtectedRoute>} />
+      <Route path="/tariffs" element={<ProtectedRoute roles={['admin']}><Tariffs /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute roles={['admin']}><UsersPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

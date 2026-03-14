@@ -8,6 +8,8 @@ const Payment = require('./Payment');
 const ProductModel = require('./ProductModel');
 const ModelMaterial = require('./ModelMaterial');
 const PackItem = require('./PackItem');
+const Expense = require('./Expense');
+const Employee = require('./Employee');
 
 // Associations
 Customer.hasMany(Order, { foreignKey: 'customerId', as: 'orders' });
@@ -52,4 +54,6 @@ module.exports = {
   ProductModel,
   ModelMaterial,
   PackItem,
+  Expense,
+  Employee,
 };

@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ShoppingCart, Users, Package,
-  Factory, Truck, CreditCard, Settings, LogOut, Sofa, Book, PackageCheck
+  Factory, Truck, CreditCard, Settings, LogOut, Sofa, Book, PackageCheck, Receipt
 } from 'lucide-react';
 
 const allNavItems = [
@@ -22,6 +22,7 @@ const allNavItems = [
     { path: '/deliveries', label: 'Livraisons', icon: Truck, roles: ['admin', 'delivery'] },
   ]},
   { section: 'Administration', items: [
+    { path: '/tariffs', label: 'Tarifs & Coûts', icon: Receipt, roles: ['admin'] },
     { path: '/users', label: 'Utilisateurs', icon: Settings, roles: ['admin'] },
   ]},
 ];
@@ -31,7 +32,7 @@ export default function Layout({ children }) {
   const location = useLocation();
 
   const getPageTitle = () => {
-    const titles = {
+    const ObjectTitles = {
       '/': 'Tableau de bord',
       '/orders': 'Commandes',
       '/customers': 'Clients',
@@ -41,9 +42,10 @@ export default function Layout({ children }) {
       '/finished-products': 'Stock (Produits Finis)',
       '/inventory': 'Matières Premières',
       '/deliveries': 'Livraisons',
+      '/tariffs': 'Tarifs & Coûts',
       '/users': 'Utilisateurs',
     };
-    return titles[location.pathname] || 'ERP Le Canapé';
+    return ObjectTitles[location.pathname] || 'ERP Le Canapé';
   };
 
   const getInitials = (name) => {
