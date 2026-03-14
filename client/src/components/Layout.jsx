@@ -7,13 +7,13 @@ import {
 
 const allNavItems = [
   { section: 'Principal', items: [
-    { path: '/', label: 'Tableau de bord', icon: LayoutDashboard, roles: ['admin'] },
+    { path: '/', label: 'Tableau de bord', icon: LayoutDashboard, roles: ['admin', 'sales', 'gerant', 'production'] },
   ]},
   { section: 'Commerce', items: [
-    { path: '/orders', label: 'Commandes', icon: ShoppingCart, roles: ['admin', 'sales'] },
-    { path: '/customers', label: 'Clients', icon: Users, roles: ['admin', 'sales'] },
-    { path: '/catalog', label: 'Catalogue', icon: Book, roles: ['admin', 'production', 'gerant'] },
-    { path: '/finance', label: 'Finances', icon: CreditCard, roles: ['admin', 'sales'] },
+    { path: '/orders', label: 'Commandes', icon: ShoppingCart, roles: ['admin', 'sales', 'gerant'] },
+    { path: '/customers', label: 'Clients', icon: Users, roles: ['admin', 'sales', 'gerant'] },
+    { path: '/catalog', label: 'Catalogue', icon: Book, roles: ['admin', 'production', 'gerant', 'sales'] },
+    { path: '/finance', label: 'Finances', icon: CreditCard, roles: ['admin', 'sales', 'gerant'] },
   ]},
   { section: 'Opérations', items: [
     { path: '/production', label: 'Fabrication', icon: Factory, roles: ['admin', 'production', 'gerant'] },

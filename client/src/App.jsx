@@ -22,15 +22,15 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-      <Route path="/" element={<ProtectedRoute roles={['admin']}><Dashboard /></ProtectedRoute>} />
-      <Route path="/customers" element={<ProtectedRoute roles={['admin','sales']}><Customers /></ProtectedRoute>} />
-      <Route path="/orders" element={<ProtectedRoute roles={['admin','sales']}><Orders /></ProtectedRoute>} />
-      <Route path="/inventory" element={<ProtectedRoute roles={['admin','production','gerant']}><Inventory /></ProtectedRoute>} />
-      <Route path="/catalog" element={<ProtectedRoute roles={['admin','production','gerant']}><Catalog /></ProtectedRoute>} />
-      <Route path="/production" element={<ProtectedRoute roles={['admin','production','gerant']}><Production /></ProtectedRoute>} />
-      <Route path="/finished-products" element={<ProtectedRoute roles={['admin','production','gerant','delivery','sales']}><FinishedProducts /></ProtectedRoute>} />
-      <Route path="/deliveries" element={<ProtectedRoute roles={['admin','delivery']}><Deliveries /></ProtectedRoute>} />
-      <Route path="/finance" element={<ProtectedRoute roles={['admin','sales']}><Finance /></ProtectedRoute>} />
+      <Route path="/" element={<ProtectedRoute roles={['admin', 'sales', 'gerant', 'production']}><Dashboard /></ProtectedRoute>} />
+      <Route path="/customers" element={<ProtectedRoute roles={['admin', 'sales', 'gerant']}><Customers /></ProtectedRoute>} />
+      <Route path="/orders" element={<ProtectedRoute roles={['admin', 'sales', 'gerant']}><Orders /></ProtectedRoute>} />
+      <Route path="/inventory" element={<ProtectedRoute roles={['admin', 'production', 'gerant']}><Inventory /></ProtectedRoute>} />
+      <Route path="/catalog" element={<ProtectedRoute roles={['admin', 'production', 'gerant', 'sales']}><Catalog /></ProtectedRoute>} />
+      <Route path="/production" element={<ProtectedRoute roles={['admin', 'production', 'gerant']}><Production /></ProtectedRoute>} />
+      <Route path="/finished-products" element={<ProtectedRoute roles={['admin', 'production', 'gerant', 'delivery', 'sales']}><FinishedProducts /></ProtectedRoute>} />
+      <Route path="/deliveries" element={<ProtectedRoute roles={['admin', 'delivery']}><Deliveries /></ProtectedRoute>} />
+      <Route path="/finance" element={<ProtectedRoute roles={['admin', 'sales', 'gerant']}><Finance /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute roles={['admin']}><UsersPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
