@@ -84,7 +84,7 @@ export default function Dashboard() {
 
   return (
     <div className="page-transition">
-      {lowStockMaterials?.length > 0 && (
+      {lowStockMaterials?.length > 0 && !hasRole('sales') && (
         <div className="alert-banner">
           <AlertTriangle size={20} />
           <span><strong>{lowStockMaterials.length} article(s)</strong> en dessous du stock minimum !</span>
@@ -156,13 +156,15 @@ export default function Dashboard() {
             <p>Livraisons en attente</p>
           </div>
         </div>
-        <div className="stat-card pink animate-in">
-          <div className="stat-icon amber"><Package size={24} /></div>
-          <div className="stat-info">
-            <h3>{stats.lowStockCount}</h3>
-            <p>Stock Faible</p>
+        {!hasRole('sales') && (
+          <div className="stat-card pink animate-in">
+            <div className="stat-icon amber"><Package size={24} /></div>
+            <div className="stat-info">
+              <h3>{stats.lowStockCount}</h3>
+              <p>Stock Faible</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="charts-grid">
@@ -268,6 +270,44 @@ export default function Dashboard() {
             )}
           </tbody>
         </table>
+
+        {data.activeProductionDetails && (
+          <>
+            <div className="table-header" style={{ marginTop: '30px' }}>
+              <h2>Fabrications en Cours (Commandes Clients)</h2>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>N° Commande</th>
+                  <th>Client</th>
+                  <th>Modèle</th>
+                  <th>Étape de Production</th>
+                  <th>Statut</th>
+                  <th>Démarrage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.activeProductionDetails.length > 0 ? data.activeProductionDetails.map(prod => (
+                  <tr key={prod.id}>
+                    <td style={{ fontWeight: 600 }}>#{prod.orderId}</td>
+                    <td>{prod.order?.customer?.name || '—'}</td>
+                    <td>{prod.order?.sofaModel || '—'}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{prod.stage}</td>
+                    <td>
+                      <span className={`badge badge-${prod.status === 'in_progress' ? 'in_production' : 'pending'}`}>
+                        {prod.status === 'in_progress' ? 'En cours' : 'En attente'}
+                      </span>
+                    </td>
+                    <td>{prod.startDate || '—'}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan="6" className="table-empty"><p>Aucune fabrication de commande en cours.</p></td></tr>
+                )}
+              </tbody>
+            </table>
+          </>
+        )}
       </div>
     </div>
   );

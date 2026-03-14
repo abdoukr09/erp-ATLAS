@@ -36,6 +36,23 @@ router.get('/stats', authenticate, async (req, res) => {
       where: { status: { [Op.in]: ['pending', 'in_progress'] } },
     });
 
+    const activeProductionDetails = await Production.findAll({
+      where: { 
+        status: { [Op.in]: ['pending', 'in_progress'] },
+        orderId: { [Op.not]: null } // Only show productions linked to customer orders, not catalog stock
+      },
+      include: [
+        { 
+          model: Order, 
+          as: 'order', 
+          attributes: ['id', 'sofaModel'],
+          include: [{ model: Customer, as: 'customer', attributes: ['name'] }]
+        }
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 15,
+    });
+
     const pendingDeliveries = await Delivery.count({
       where: { status: { [Op.in]: ['scheduled', 'in_transit'] } },
     });
@@ -120,6 +137,7 @@ router.get('/stats', authenticate, async (req, res) => {
         pendingDeliveries,
       },
       lowStockMaterials,
+      activeProductionDetails,
       recentOrders,
       monthlyRevenue,
       monthlyRevenueByType,
