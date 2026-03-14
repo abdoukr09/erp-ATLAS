@@ -26,6 +26,11 @@ const Employee = sequelize.define('Employee', {
     allowNull: true,
     defaultValue: 0,
   },
+  commissionRate: {
+    type: DataTypes.DECIMAL(5, 2),
+    allowNull: true,
+    defaultValue: 0,
+  },
   notes: {
     type: DataTypes.TEXT,
     allowNull: true,

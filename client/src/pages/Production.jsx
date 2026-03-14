@@ -13,7 +13,11 @@ export default function Production() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [employees, setEmployees] = useState([]);
-  const [form, setForm] = useState({ orderId: '', productModelId: '', stage: 'fabrication', worker: '', status: 'in_progress', notes: '', completedById: '' });
+  const [form, setForm] = useState({ 
+    orderId: '', productModelId: '', notes: '', status: 'in_progress', 
+    tasks: [] // Array of { id: rand, workerId: '', workerName: '', taskName: '', commissionType: 'percentage', commissionValue: 0 }
+  });
+  const [isStockProduction, setIsStockProduction] = useState(false);
 
   useEffect(() => { fetchProductions(); fetchOrders(); fetchProductModels(); fetchEmployees(); }, []);
 
@@ -39,20 +43,16 @@ export default function Production() {
         ...form,
         orderId: form.orderId === '' ? null : form.orderId,
         productModelId: form.productModelId === '' ? null : form.productModelId,
-        completedById: form.completedById === '' ? null : form.completedById
       };
       if (editing) {
-        // If marking as completed
-        if (form.status === 'completed') {
-          if (!confirm('Attention: Marquer cette fiche comme terminée la rendra "Prêt" dans le Stock Produits Finis. Continuer ?')) return;
-        }
         await api.put(`/production/${editing.id}`, sanitizedForm);
       } else {
         await api.post('/production', isStockProduction ? { ...sanitizedForm, orderId: null } : { ...sanitizedForm, productModelId: null });
       }
       setShowModal(false); setEditing(null);
-      setForm({ orderId: '', productModelId: '', stage: 'fabrication', worker: '', status: 'in_progress', notes: '', completedById: '' });
+      setForm({ orderId: '', productModelId: '', notes: '', status: 'in_progress', tasks: [] });
       fetchProductions();
+      fetchOrders(); // Refetch orders so their updated 'in_production' status removes them from the dropdown
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
@@ -62,11 +62,17 @@ export default function Production() {
     setForm({ 
       orderId: p.orderId || '', 
       productModelId: p.productModelId || '',
-      stage: p.stage, 
-      worker: p.worker || '', 
       status: p.status, 
       notes: p.notes || '',
-      completedById: p.completedById || ''
+      // For editing old records, map to a single task
+      tasks: [{ 
+        id: Date.now(), 
+        workerName: p.worker || '', 
+        taskName: p.taskName || p.stage || 'Fabrication', 
+        commissionType: p.commissionType || 'percentage', 
+        commissionValue: p.commissionValue || 0,
+        completedById: p.completedById || ''
+      }]
     });
     setShowModal(true);
   };
@@ -102,7 +108,7 @@ export default function Production() {
             <button className="btn btn-primary" onClick={() => { 
                 setEditing(null); 
                 setIsStockProduction(false);
-                setForm({ orderId: '', productModelId: '', stage: 'fabrication', worker: '', status: 'in_progress', notes: '', completedById: '' }); 
+                setForm({ orderId: '', productModelId: '', notes: '', status: 'in_progress', tasks: [] }); 
                 setShowModal(true); 
               }}>
               <Plus size={16} /> Lancer Fabrication
@@ -172,10 +178,10 @@ export default function Production() {
                ) : (
                  <div className="form-group">
                    <label>Commande *</label>
-                    <select className="form-control" value={form.orderId} onChange={e => setForm({...form, orderId: e.target.value})} required>
-                      <option value="">Sélectionner une commande</option>
-                      {orders.filter(o => o.status === 'pending').map(o => <option key={o.id} value={o.id}>#{o.id} - {o.sofaModel} ({o.customer?.name})</option>)}
-                    </select>
+                     <select className="form-control" value={form.orderId} onChange={e => setForm({...form, orderId: e.target.value})} required disabled={editing}>
+                       <option value="">Sélectionner une commande</option>
+                       {orders.filter(o => o.status === 'pending' || (editing && o.id == form.orderId)).map(o => <option key={o.id} value={o.id}>#{o.id} - {o.sofaModel} ({o.customer?.name})</option>)}
+                     </select>
                  </div>
                )}
              </>
@@ -189,23 +195,61 @@ export default function Production() {
               </select>
             </div>
             
-            {form.status === 'completed' && (
-              <div className="form-group alert-info" style={{background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '15px', borderRadius: '8px'}}>
-                 <label style={{color: '#059669', marginBottom: '8px', display: 'block'}}><strong>Ouvrier récompensé (Optionnel)</strong></label>
-                 <select className="form-control" value={form.completedById} onChange={e => setForm({...form, completedById: e.target.value})}>
-                    <option value="">-- Ne créditer aucun employé --</option>
-                    {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.category})</option>)}
-                 </select>
-                 <p style={{fontSize: '0.8rem', marginTop: '8px', marginBottom: 0, color: 'var(--text-muted)'}}>
-                    En sélectionnant un employé, ce produit sera ajouté à sa fiche de production mensuelle dans la rubrique <strong>Personnel & Paie</strong> pour le calcul des primes.
-                 </p>
-              </div>
-            )}
-
-            {form.status !== 'completed' && (
-              <div className="form-group">
-                <label>Nom ou Note d'Ouvrier (Libre)</label>
-                <input className="form-control" placeholder="Acheminé vers..." value={form.worker} onChange={e => setForm({...form, worker: e.target.value})} />
+            {form.status !== 'completed' && !editing && (
+              <div className="form-group" style={{marginTop: '20px'}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px'}}>
+                  <label style={{marginBottom:0, fontWeight:'bold', display:'flex', alignItems:'center', gap:'5px'}}>
+                    Tâches & Rémunérations (Ouvriers)
+                  </label>
+                  <button type="button" className="btn btn-outline" style={{padding:'4px 8px', fontSize:'0.8rem'}} onClick={() => {
+                    setForm({...form, tasks: [...form.tasks, { id: Date.now() + Math.random(), workerId: '', workerName: '', taskName: '', commissionType: 'percentage', commissionValue: 0 }]});
+                  }}>
+                    + Ajouter Un Ouvrier
+                  </button>
+                </div>
+                
+                {form.tasks.map((task, index) => (
+                  <div key={task.id} style={{background:'#f8fafc', padding:'12px', borderRadius:'8px', border:'1px solid #e2e8f0', marginBottom:'10px', position:'relative'}}>
+                    <button type="button" className="btn-icon danger" style={{position:'absolute', top:'10px', right:'10px'}} onClick={() => {
+                      const newTasks = [...form.tasks];
+                      newTasks.splice(index, 1);
+                      setForm({...form, tasks: newTasks});
+                    }}><Trash2 size={14} /></button>
+                    
+                    <div className="form-row" style={{marginBottom:0, paddingRight:'25px'}}>
+                      <div className="form-group" style={{marginBottom:0}}>
+                        <label style={{fontSize:'0.8rem'}}>Ouvrier</label>
+                        <select className="form-control" value={task.completedById || ''} onChange={e => {
+                          const val = e.target.value;
+                          const emp = employees.find(emp => emp.id === parseInt(val));
+                          const newTasks = [...form.tasks];
+                          newTasks[index].completedById = val;
+                          newTasks[index].workerName = emp ? emp.name : '';
+                          setForm({...form, tasks: newTasks});
+                        }}>
+                          <option value="">-- Choisir --</option>
+                          {employees.filter(e => !e.category?.toLowerCase().includes('vendeur')).map(e => (
+                            <option key={e.id} value={e.id}>{e.name} ({e.category})</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group" style={{marginBottom:0}}>
+                        <label style={{fontSize:'0.8rem'}}>Nature (ex: Tapissage)</label>
+                        <input className="form-control" placeholder="Tâche..." value={task.taskName} onChange={e => {
+                          const newTasks = [...form.tasks];
+                          newTasks[index].taskName = e.target.value;
+                          setForm({...form, tasks: newTasks});
+                        }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {form.tasks.length === 0 && (
+                  <p style={{fontSize:'0.85rem', color:'var(--text-muted)', textAlign:'center', padding:'10px', border:'1px dashed #cbd5e1', borderRadius:'6px'}}>
+                    Aucun ouvrier assigné. Cliquez sur "Ajouter" pour répartir les tâches.
+                  </p>
+                )}
               </div>
             )}
             

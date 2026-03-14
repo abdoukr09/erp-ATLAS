@@ -80,6 +80,24 @@ const Order = sequelize.define('Order', {
     allowNull: false,
     defaultValue: DataTypes.NOW,
   },
+  salesmanId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'employees',
+      key: 'id',
+    },
+  },
+  commissionType: {
+    type: DataTypes.ENUM('fixed', 'percentage'),
+    allowNull: true,
+    defaultValue: 'percentage', // Default to percentage for salesmen
+  },
+  commissionValue: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+    defaultValue: 0,
+  }
 }, {
   tableName: 'orders',
   timestamps: true,

@@ -38,7 +38,11 @@ router.get('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (r
 // POST /api/orders
 router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req, res) => {
   try {
-    const { customerId, sofaModel, fabric, color, quantity, unitPrice, deliveryAddress, notes, orderDate, discountPercentage, useStock } = req.body;
+    const { 
+      customerId, sofaModel, fabric, color, quantity, unitPrice, 
+      deliveryAddress, notes, orderDate, discountPercentage, useStock, 
+      salesmanId, commissionType, commissionValue 
+    } = req.body;
     
     if (!customerId || !sofaModel) {
       return res.status(400).json({ error: 'Customer and sofa model are required.' });
@@ -76,6 +80,9 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req
       deliveryAddress: deliveryAddress || customer.address,
       notes, orderDate: orderDate || new Date(),
       status: initialStatus,
+      salesmanId: salesmanId || null,
+      commissionType: commissionType || 'percentage',
+      commissionValue: commissionValue || 0,
     });
 
     if (advanceAmount > 0) {
@@ -121,6 +128,10 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (r
     if (req.body.advancePayment !== undefined) {
       req.body.advancePayment = req.body.advancePayment;
     }
+
+    // Allow updating commission terms
+    if (req.body.commissionType !== undefined) req.body.commissionType = req.body.commissionType;
+    if (req.body.commissionValue !== undefined) req.body.commissionValue = req.body.commissionValue;
 
     await order.update(req.body);
     res.json(order);

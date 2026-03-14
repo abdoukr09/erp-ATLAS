@@ -49,6 +49,36 @@ const Production = sequelize.define('Production', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  completedById: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'employees',
+      key: 'id',
+    },
+  },
+  completionDate: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+  },
+  taskName: {
+    type: DataTypes.STRING(100), // e.g., 'Tapissage', 'Menuiserie', 'Couture'
+    allowNull: true,
+  },
+  commissionType: {
+    type: DataTypes.ENUM('fixed', 'percentage'),
+    allowNull: true,
+  },
+  commissionValue: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+    defaultValue: 0,
+  },
+  basePrice: {
+    // The price this commission was based on at the time of creation (e.g. Order Final Price)
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true, 
+  },
   materialsDeducted: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

@@ -14,10 +14,16 @@ export default function Orders() {
   const [form, setForm] = useState({
     customerId: '', sofaModel: '', quantity: 1, unitPrice: '', 
     discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', 
-    deliveryAddress: '', notes: '', status: 'pending', useStock: false
+    deliveryAddress: '', notes: '', status: 'pending', useStock: false, 
+    salesmanId: '', commissionType: 'percentage', commissionValue: 0
   });
+  const [employees, setEmployees] = useState([]);
 
-  useEffect(() => { fetchOrders(); fetchCustomers(); fetchProductModels(); }, []);
+  useEffect(() => { fetchOrders(); fetchCustomers(); fetchProductModels(); fetchEmployees(); }, []);
+
+  const fetchEmployees = async () => {
+    try { const res = await api.get('/employees'); setEmployees(res.data); } catch (err) { console.error(err); }
+  };
 
   const fetchOrders = async () => {
     try { const res = await api.get('/orders'); setOrders(res.data); } catch (err) { console.error(err); }
@@ -48,7 +54,7 @@ export default function Orders() {
         await api.post('/orders', payload);
       }
       setShowModal(false); setEditing(null); setCustomTotal('');
-      setForm({ customerId: '', sofaModel: '', quantity: 1, unitPrice: '', discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', notes: '', status: 'pending', useStock: false });
+      setForm({ customerId: '', sofaModel: '', quantity: 1, unitPrice: '', discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', notes: '', status: 'pending', useStock: false, salesmanId: '', commissionType: 'percentage', commissionValue: 0 });
       fetchOrders();
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
@@ -61,7 +67,10 @@ export default function Orders() {
       quantity: order.quantity, unitPrice: order.unitPrice,
       discountPercentage: order.discountPercentage || 0,
       advancePayment: order.advancePayment || '', paymentMethod: 'cash', 
-      deliveryAddress: order.deliveryAddress || '', notes: order.notes || '', status: order.status
+      deliveryAddress: order.deliveryAddress || '', notes: order.notes || '', status: order.status,
+      salesmanId: order.salesmanId || '',
+      commissionType: order.commissionType || 'percentage',
+      commissionValue: order.commissionValue || 0
     });
     setShowModal(true);
   };
@@ -95,7 +104,7 @@ export default function Orders() {
               <Search className="search-icon" />
               <input className="search-input" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
-            <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ customerId: '', sofaModel: '', quantity: 1, unitPrice: '', discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', notes: '', status: 'pending', useStock: false }); setShowModal(true); }}>
+            <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ customerId: '', sofaModel: '', quantity: 1, unitPrice: '', discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', notes: '', status: 'pending', useStock: false, salesmanId: '', commissionType: 'percentage', commissionValue: 0 }); setShowModal(true); }}>
               <Plus size={16} /> Nouvelle Commande
             </button>
           </div>
@@ -159,6 +168,22 @@ export default function Orders() {
               {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
+          <div className="form-group">
+            <label>Vendeur (Sellsman)</label>
+            <select className="form-control" value={form.salesmanId} onChange={e => {
+              setForm({
+                ...form, 
+                salesmanId: e.target.value
+              });
+            }}>
+              <option value="">Sélectionner un vendeur</option>
+              {employees.filter(e => e.category?.toLowerCase().includes('vendeur') || e.category?.toLowerCase().includes('sellsman') || e.category?.toLowerCase().includes('commercial')).map(e => (
+                <option key={e.id} value={e.id}>{e.name}</option>
+              ))}
+            </select>
+          </div>
+
+
           <div className="form-row">
             <div className="form-group">
               <label>Modèle *</label>

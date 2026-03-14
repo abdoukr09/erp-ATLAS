@@ -71,12 +71,12 @@ export default function Layout({ children }) {
         </div>
 
         <nav className="sidebar-nav">
-          {allNavItems.map(section => {
-            const visibleItems = section.items.filter(item => item.roles.includes(user?.role));
+          {Object.entries(groupedMenuItems).map(([section, items]) => {
+            const visibleItems = items.filter(item => item.roles.includes(user?.role));
             if (visibleItems.length === 0) return null;
             return (
-              <div key={section.section}>
-                <div className="nav-section-title">{section.section}</div>
+              <div key={section}>
+                <div className="nav-section-title">{section}</div>
                 {visibleItems.map(item => (
                   <NavLink
                     key={item.path}
@@ -109,7 +109,7 @@ export default function Layout({ children }) {
 
       <main className="main-content">
         <header className="topbar">
-          <h2 className="topbar-title">{getPageTitle()}</h2>
+          <h2 className="topbar-title">{getPageTitle(location.pathname)}</h2>
           <div className="topbar-actions">
             <span className={`badge badge-${user?.role}`}>{user?.role}</span>
           </div>

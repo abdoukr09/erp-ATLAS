@@ -1,5 +1,5 @@
 const express = require('express');
-const { Employee, EmployeePayment, Production, ProductModel } = require('../models');
+const { Employee, EmployeePayment, Production, ProductModel, Order } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
 const router = express.Router();
 const { Op } = require('sequelize');
@@ -100,10 +100,35 @@ router.get('/:id/performance', authenticate, authorize('admin', 'gerant'), async
       ]
     });
 
-    res.json(completedProductions);
+    const sales = await Order.findAll({
+      where: {
+        salesmanId: employeeId,
+        orderDate: {
+          [Op.gte]: startDate,
+          [Op.lt]: endDate
+        }
+      }
+    });
+
+    // Helper: find actual catalogue price
+    // If order relates to a product model, use its basePrice
+    // We try to find the matching model from ProductModel table
+    const salesWithPrice = await Promise.all(sales.map(async (o) => {
+      const pm = await ProductModel.findOne({ where: { name: o.sofaModel } });
+      return {
+        ...o.toJSON(),
+        cataloguePrice: pm ? pm.basePrice : o.unitPrice,
+        finalPrice: o.totalPrice
+      };
+    }));
+
+    res.json({
+      productions: completedProductions,
+      sales: salesWithPrice
+    });
   } catch (error) {
     console.error('Performance Calc Error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Server error: ' + error.message });
   }
 });
 

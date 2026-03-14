@@ -48,6 +48,9 @@ PackItem.belongsTo(ProductModel, { foreignKey: 'productId', as: 'product' });
 ProductModel.hasMany(Production, { foreignKey: 'productModelId', as: 'stockProductions' });
 Production.belongsTo(ProductModel, { foreignKey: 'productModelId', as: 'productModel' });
 
+Employee.hasMany(Order, { foreignKey: 'salesmanId', as: 'sales' });
+Order.belongsTo(Employee, { foreignKey: 'salesmanId', as: 'salesman' });
+
 module.exports = {
   User,
   Customer,

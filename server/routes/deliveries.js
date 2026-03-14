@@ -6,8 +6,14 @@ const router = express.Router();
 // GET /api/deliveries
 router.get('/', authenticate, authorize('admin', 'delivery', 'gerant'), async (req, res) => {
   try {
+    const { Customer } = require('../models');
     const deliveries = await Delivery.findAll({
-      include: [{ model: Order, as: 'order', attributes: ['id', 'sofaModel', 'quantity', 'status', 'totalPrice', 'advancePayment', 'remainingPayment', 'paymentStatus', 'deliveryAddress'] }],
+      include: [{ 
+        model: Order, 
+        as: 'order', 
+        attributes: ['id', 'sofaModel', 'quantity', 'status', 'totalPrice', 'advancePayment', 'remainingPayment', 'paymentStatus', 'deliveryAddress'],
+        include: [{ model: Customer, as: 'customer', attributes: ['name'] }]
+      }],
       order: [['createdAt', 'DESC']],
     });
     res.json(deliveries);

@@ -51,10 +51,10 @@ const deductMaterials = async (orderId, productModelId, targetQuantity, t) => {
     for (const [materialId, totalRequired] of materialMap.entries()) {
       if (totalRequired > 0) {
         const material = await Material.findByPk(materialId, { transaction: t });
-        if (!material || material.stock < totalRequired) {
-          throw new Error(`Stock insuffisant pour ${material?.name || 'Inconnu'}. Requis: ${totalRequired}, Disponible: ${material?.stock || 0}`);
+        if (material) {
+           // Allow stock to go negative. Don't block production in real-world factory workflows!
+           await material.update({ stock: Number(material.stock || 0) - totalRequired }, { transaction: t });
         }
-        await material.update({ stock: material.stock - totalRequired }, { transaction: t });
       }
     }
     return true;
@@ -83,7 +83,7 @@ router.get('/', authenticate, authorize('admin', 'production', 'gerant'), async 
 router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async (req, res) => {
   const t = await Production.sequelize.transaction();
   try {
-    let { orderId, productModelId, stage, worker, notes, startDate, status } = req.body;
+    let { orderId, productModelId, notes, startDate, tasks, quantity } = req.body;
     if (orderId === '') orderId = null;
     if (productModelId === '') productModelId = null;
     if (!orderId && !productModelId) {
@@ -91,26 +91,73 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
       return res.status(400).json({ error: 'Order ID or Product Model ID is required.' });
     }
 
+    let basePrice = null;
+    let finalQuantity = quantity || 1;
+
     if (orderId) {
       const order = await Order.findByPk(orderId, { transaction: t });
-      if (order && order.status === 'pending') {
-        await order.update({ status: 'in_production' }, { transaction: t });
+      if (order) {
+        if (order.status === 'pending') {
+          await order.update({ status: 'in_production' }, { transaction: t });
+        }
+        basePrice = order.totalPrice; // This is the final price after discount
+        finalQuantity = order.quantity;
       }
     }
 
+    // Default to a single generic task if UI didn't send an array (fallback for old UI)
+    const assignments = (tasks && tasks.length > 0) ? tasks : [{
+       stage: req.body.stage || 'fabrication',
+       worker: req.body.worker,
+       completedById: req.body.completedById || null,
+       taskName: 'Fabrication Globale',
+       commissionType: 'percentage',
+       commissionValue: 0
+    }];
+
+    const createdRecords = [];
+
     // Force status to pending on creation — materials are deducted when moving to in_progress
-    const production = await Production.create({
-      orderId, productModelId, stage: stage || 'fabrication', worker, notes,
-      startDate: startDate || new Date(),
-      status: 'pending',
-      materialsDeducted: false
-    }, { transaction: t });
+    // Create one production record PER TASK/WORKER
+    for (const task of assignments) {
+       let commissionType = task.commissionType;
+       let commissionValue = task.commissionValue;
+
+       // If not provided or zero, try to get from Employee's profile
+       if (task.completedById && (!commissionValue || commissionValue === 0)) {
+          const { Employee } = require('../models');
+          const emp = await Employee.findByPk(task.completedById, { transaction: t });
+          if (emp) {
+            commissionType = 'percentage';
+            commissionValue = Number(emp.commissionRate || 0);
+          }
+       }
+       
+       const production = await Production.create({
+         orderId, 
+         productModelId, 
+         stage: task.stage || 'fabrication', 
+         worker: task.workerName || task.worker || '', 
+         notes,
+         startDate: startDate || new Date(),
+         status: 'pending',
+         materialsDeducted: false,
+         completedById: task.completedById || null,
+         taskName: task.taskName || 'Fabrication',
+         commissionType: commissionType || 'percentage',
+         commissionValue: commissionValue || 0,
+         basePrice: basePrice,
+         quantity: finalQuantity
+       }, { transaction: t });
+       
+       createdRecords.push(production);
+    }
 
     await t.commit();
-    res.status(201).json(production);
+    res.status(201).json(createdRecords);
   } catch (error) {
     if (t && !t.finished) await t.rollback();
-    res.status(500).json({ error: 'Server error during production initialization.' });
+    res.status(500).json({ error: 'Server error during production initialization: ' + error.message });
   }
 });
 

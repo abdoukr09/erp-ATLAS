@@ -97,7 +97,7 @@ export default function Deliveries() {
           </div>
         </div>
         <table>
-          <thead><tr><th>ID</th><th>Commande</th><th>Modèle</th><th>Chauffeur</th><th>Reste à Payer</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
+          <thead><tr><th>ID</th><th>Commande</th><th>Client</th><th>Modèle</th><th>Chauffeur</th><th>Reste à Payer</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
           <tbody>
             {filtered.length > 0 ? filtered.map(d => {
               const reste = d.order ? (Number(d.order.totalPrice || 0) - Number(d.order.advancePayment || 0)) : 0;
@@ -107,6 +107,7 @@ export default function Deliveries() {
               <tr key={d.id}>
                 <td>#{d.id}</td>
                 <td>Commande #{d.orderId}</td>
+                <td><span style={{fontWeight:600}}>{d.order?.customer?.name || '—'}</span></td>
                 <td style={{fontWeight:600, color:'var(--text-primary)'}}>{d.order?.sofaModel || '—'}</td>
                 <td>{d.driver || '—'}</td>
                 <td>
@@ -136,7 +137,7 @@ export default function Deliveries() {
                 </td>
               </tr>
             )}) : (
-              <tr><td colSpan="8" className="table-empty"><Truck size={32} style={{color:'var(--text-muted)'}} /><p>Aucune livraison planifiée</p></td></tr>
+              <tr><td colSpan="9" className="table-empty"><Truck size={32} style={{color:'var(--text-muted)'}} /><p>Aucune livraison planifiée</p></td></tr>
             )}
           </tbody>
         </table>
@@ -150,7 +151,7 @@ export default function Deliveries() {
               <label>Commande *</label>
               <select className="form-control" value={form.orderId} onChange={e => setForm({...form, orderId: e.target.value})} required>
                 <option value="">Sélectionner une commande</option>
-                {orders.filter(o => o.status === 'ready').map(o => <option key={o.id} value={o.id}>#{o.id} - {o.sofaModel}</option>)}
+                {orders.filter(o => o.status === 'ready').map(o => <option key={o.id} value={o.id}>#{o.id} - {o.sofaModel} ({o.customer?.name})</option>)}
               </select>
             </div>
           )}
