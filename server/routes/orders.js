@@ -71,7 +71,8 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req
       discountPercentage: discountPercentage || 0,
       totalPrice,
       advancePayment: advanceAmount,
-      paymentStatus: advanceAmount > 0 ? 'advance_paid' : 'unpaid',
+      remainingPayment: totalPrice - advanceAmount,
+      paymentStatus: advanceAmount >= totalPrice ? 'fully_paid' : (advanceAmount > 0 ? 'advance_paid' : 'unpaid'),
       deliveryAddress: deliveryAddress || customer.address,
       notes, orderDate: orderDate || new Date(),
       status: initialStatus,
@@ -102,6 +103,11 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (r
 
     if (req.body.totalPrice !== undefined) {
       req.body.totalPrice = req.body.totalPrice;
+      // Recalculate remaining payment if total changes
+      // We need to fetch current total payments for this order
+      const totalPaid = await Payment.sum('amount', { where: { orderId: order.id, status: 'completed' } });
+      req.body.remainingPayment = req.body.totalPrice - (totalPaid || 0);
+      req.body.paymentStatus = req.body.remainingPayment <= 0 ? 'fully_paid' : ((totalPaid || 0) > 0 ? 'advance_paid' : 'unpaid');
     } else if (req.body.quantity !== undefined || req.body.unitPrice !== undefined || req.body.discountPercentage !== undefined) {
       const qty = req.body.quantity !== undefined ? req.body.quantity : order.quantity;
       const price = req.body.unitPrice !== undefined ? req.body.unitPrice : order.unitPrice;

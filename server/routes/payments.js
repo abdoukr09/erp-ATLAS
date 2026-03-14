@@ -20,10 +20,24 @@ router.get('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req,
   }
 });
 
+// Helper to sync order payment status
+const syncOrderPayment = async (orderId) => {
+  const order = await Order.findByPk(orderId);
+  if (!order) return;
+
+  const totalPaid = await Payment.sum('amount', { where: { orderId, status: 'completed' } });
+  const remaining = Number(order.totalPrice) - (totalPaid || 0);
+  let status = 'unpaid';
+  if (remaining <= 0) status = 'fully_paid';
+  else if ((totalPaid || 0) > 0) status = 'advance_paid';
+
+  await order.update({ remainingPayment: remaining, paymentStatus: status });
+};
+
 // POST /api/payments
 router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req, res) => {
   try {
-    const { orderId, amount, method, paymentDate, notes } = req.body;
+    const { orderId, amount, method, paymentDate, notes, type } = req.body;
     if (!orderId || !amount) return res.status(400).json({ error: 'Order ID and amount are required.' });
 
     const order = await Order.findByPk(orderId);
@@ -33,10 +47,15 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req
       orderId, amount, method: method || 'cash',
       status: 'completed',
       paymentDate: paymentDate || new Date(),
+      type: type || 'other',
       notes,
     });
+
+    await syncOrderPayment(orderId);
+
     res.status(201).json(payment);
   } catch (error) {
+    console.error('Payment Create Error:', error);
     res.status(500).json({ error: 'Server error.' });
   }
 });
@@ -48,6 +67,8 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (r
     if (!payment) return res.status(404).json({ error: 'Payment not found.' });
 
     await payment.update(req.body);
+    await syncOrderPayment(payment.orderId);
+
     res.json(payment);
   } catch (error) {
     res.status(500).json({ error: 'Server error.' });
@@ -60,8 +81,11 @@ router.delete('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async
     const payment = await Payment.findByPk(req.params.id);
     if (!payment) return res.status(404).json({ error: 'Payment not found.' });
 
+    const orderId = payment.orderId;
     await payment.destroy();
-    res.json({ message: 'Payment deleted.' });
+    await syncOrderPayment(orderId);
+
+    res.json({ message: 'Payment deleted and order updated.' });
   } catch (error) {
     res.status(500).json({ error: 'Server error.' });
   }

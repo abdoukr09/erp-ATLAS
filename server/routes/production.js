@@ -171,15 +171,61 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
   }
 });
 
+// Helper to revert materials (return to stock)
+const revertMaterials = async (orderId, productModelId, targetQuantity, t) => {
+  const { ProductModel, Material } = require('../models');
+  let targetModel = null;
+
+  if (orderId) {
+    const { Order } = require('../models');
+    const order = await Order.findByPk(orderId, { transaction: t });
+    if (order) {
+      targetModel = await ProductModel.findOne({ where: { name: order.sofaModel }, transaction: t });
+    }
+  } else if (productModelId) {
+    targetModel = await ProductModel.findByPk(productModelId, { transaction: t });
+  }
+
+  if (!targetModel) return;
+
+  const model = await ProductModel.findByPk(targetModel.id, {
+    include: [{ model: Material, as: 'materials' }],
+    transaction: t
+  });
+
+  if (model && model.materials) {
+    for (const material of model.materials) {
+      const requiredQty = material.ModelMaterial.quantity * targetQuantity;
+      await material.update({ stock: Number(material.stock) + requiredQty }, { transaction: t });
+    }
+  }
+};
+
 // DELETE /api/production/:id
 router.delete('/:id', authenticate, authorize('admin', 'production', 'gerant'), async (req, res) => {
+  const t = await sequelize.transaction();
   try {
-    const production = await Production.findByPk(req.params.id);
-    if (!production) return res.status(404).json({ error: 'Production record not found.' });
+    const production = await Production.findByPk(req.params.id, {
+      include: [{ model: Order, as: 'order' }],
+      transaction: t
+    });
+    if (!production) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Production record not found.' });
+    }
 
-    await production.destroy();
-    res.json({ message: 'Production record deleted.' });
+    // If materials were deducted, revert them
+    if (production.materialsDeducted) {
+      let qty = 1;
+      if (production.order) qty = production.order.quantity;
+      await revertMaterials(production.orderId, production.productModelId, qty, t);
+    }
+
+    await production.destroy({ transaction: t });
+    await t.commit();
+    res.json({ message: 'Production record deleted and materials reverted if necessary.' });
   } catch (error) {
+    if (t && !t.finished) await t.rollback();
     console.error('Delete Production Error:', error);
     res.status(500).json({ error: 'Server error: ' + (error.message || 'Unknown error') });
   }
