@@ -219,7 +219,10 @@ export default function Employees() {
                             <tr key={p.id}>
                               <td>{p.completionDate}</td>
                               <td style={{fontWeight: 600}}>
-                                {p.orderId ? `Cde #${p.orderId} (${Number(p.basePrice || 0).toLocaleString()} DA)` : (p.productModel?.name || 'Stock')}
+                                {p.orderId ? `Cde #${p.orderId}` : (p.productModel?.name || 'Stock')}
+                                <div style={{fontSize: '0.75rem', color: 'var(--text-muted)'}}>
+                                  Valeur: {Number(p.basePrice || 0).toLocaleString()} DA
+                                </div>
                               </td>
                             </tr>
                           )) : (

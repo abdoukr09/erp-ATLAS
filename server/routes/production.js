@@ -103,6 +103,11 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
         basePrice = order.totalPrice; // This is the final price after discount
         finalQuantity = order.quantity;
       }
+    } else if (productModelId) {
+      const pm = await ProductModel.findByPk(productModelId, { transaction: t });
+      if (pm) {
+        basePrice = pm.basePrice;
+      }
     }
 
     // Default to a single generic task if UI didn't send an array (fallback for old UI)
