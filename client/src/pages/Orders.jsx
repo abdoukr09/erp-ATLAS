@@ -76,7 +76,6 @@ export default function Orders() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this order?')) return;
     try { await api.delete(`/orders/${id}`); fetchOrders(); } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 

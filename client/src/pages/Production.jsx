@@ -78,7 +78,6 @@ export default function Production() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this production record?')) return;
     try { await api.delete(`/production/${id}`); fetchProductions(); } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
