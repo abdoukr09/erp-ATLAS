@@ -181,8 +181,9 @@ export default function Catalog() {
               <th>Nom du Modèle</th>
               <th>Catégorie</th>
               <th>Type</th>
-              <th>Matières</th>
-              <th>Stock</th>
+              {canManage && <th>Matières</th>}
+              <th>Faisabilité (Prod.)</th>
+              <th>Stock (Prêt)</th>
               <th>Prix de Base</th>
               {canManage && <th>Actions</th>}
             </tr>
@@ -203,11 +204,18 @@ export default function Catalog() {
                     <span className="badge badge-pending">Simple</span>
                   )}
                 </td>
+                {canManage && (
+                  <td>
+                    <div style={{display:'flex', alignItems:'center', gap:8}}>
+                      <span className="badge badge-delivered">{m.materials?.length || 0} matieres</span>
+                      <button className="btn-icon" onClick={() => openBomModal(m)} title="Gérer Matières"><Settings size={14} /></button>
+                    </div>
+                  </td>
+                )}
                 <td>
-                  <div style={{display:'flex', alignItems:'center', gap:8}}>
-                    <span className="badge badge-delivered">{m.materials?.length || 0} matieres</span>
-                    {canManage && <button className="btn-icon" onClick={() => openBomModal(m)} title="Gérer Matières"><Settings size={14} /></button>}
-                  </div>
+                  <span className={`badge ${m.maxProducible > 0 ? 'badge-delivered' : (m.maxProducible === -1 ? 'badge-pending' : 'badge-cancelled')}`}>
+                    {m.maxProducible === -1 ? 'N/A' : (m.maxProducible > 0 ? `Oui (Max ${m.maxProducible})` : 'Rupture Matière')}
+                  </span>
                 </td>
                 <td style={{textAlign:'center'}}>
                   <span className={`badge ${m.stock > 0 ? 'badge-delivered' : 'badge-pending'}`} style={{fontSize:'1.1em', fontWeight:700}}>

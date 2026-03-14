@@ -17,7 +17,31 @@ router.get('/', authenticate, async (req, res) => {
       ],
       order: [['name', 'ASC']],
     });
-    res.json(models);
+
+    const enrichedModels = models.map(model => {
+      const plainModel = model.get({ plain: true });
+      let maxProducible = -1; // -1 means no limitation found (or no BOM)
+
+      if (plainModel.materials && plainModel.materials.length > 0) {
+        for (const mat of plainModel.materials) {
+          const reqQty = mat.ModelMaterial?.quantity || 0;
+          if (reqQty > 0) {
+            const currentStock = Number(mat.stock) || 0;
+            const possible = Math.floor(currentStock / reqQty);
+            if (maxProducible === -1 || possible < maxProducible) {
+              maxProducible = possible;
+            }
+          }
+        }
+      } else {
+        maxProducible = 0; // If no direct materials, assume 0 for simplicity (requires configuration)
+      }
+
+      plainModel.maxProducible = maxProducible;
+      return plainModel;
+    });
+
+    res.json(enrichedModels);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error.' });

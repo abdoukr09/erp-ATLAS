@@ -16,7 +16,7 @@ export default function FinishedProducts() {
         api.get('/product-models')
       ]);
       setOrders(ordRes.data.filter(o => o.status === 'ready'));
-      setProductModels(modRes.data.filter(m => m.stock > 0));
+      setProductModels(modRes.data);
     } catch (err) {
       console.error(err);
     }
@@ -79,7 +79,7 @@ export default function FinishedProducts() {
               <tr key={m.id}>
                 <td style={{ fontWeight: 600 }}>{m.name}</td>
                 <td>{m.category || '—'}</td>
-                <td><span className="badge badge-delivered" style={{ fontSize: '1.1rem' }}>{m.stock}</span> units</td>
+                <td><span className={`badge ${m.stock > 0 ? 'badge-delivered' : 'badge-pending'}`} style={{ fontSize: '1.1rem' }}>{m.stock || 0}</span> units</td>
                 <td>{m.basePrice} DA</td>
               </tr>
             )) : (
