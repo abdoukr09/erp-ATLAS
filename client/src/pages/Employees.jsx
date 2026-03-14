@@ -85,15 +85,12 @@ export default function Employees() {
 
   const openPaymentModal = () => {
     // Determine suggested payment by looking at total performance vs profile rate
-    let totalCalculatedBonus = 0;
+    // We base it on total final sales + total production value
+    const totalSalesFinal = performanceData.sales?.reduce((sum, s) => sum + Number(s.finalPrice || s.totalPrice || 0), 0) || 0;
+    const totalProductionValue = performanceData.productions?.reduce((sum, p) => sum + (Number(p.basePrice || 0) * Number(p.quantity || 1)), 0) || 0;
     
-    // We base it on total final sales or a rough production estimate, then the admin applies a %
-    const totalSalesFinal = performanceData.sales?.reduce((sum, s) => sum + Number(s.finalPrice || s.totalPrice), 0) || 0;
-    const totalProductions = performanceData.productions?.reduce((sum, p) => sum + p.quantity, 0) || 0;
-    
-    const basePerformanceVolume = totalSalesFinal > 0 ? totalSalesFinal : (totalProductions * 1000); // 1000 DA arbitraire par pièce par défaut
-    
-    totalCalculatedBonus = basePerformanceVolume * (Number(selectedEmployee.commissionRate || 0) / 100);
+    const totalVolume = totalSalesFinal + totalProductionValue;
+    totalCalculatedBonus = totalVolume * (Number(selectedEmployee.commissionRate || 0) / 100);
 
     setPaymentForm({
         baseAmount: Number(selectedEmployee.baseSalary) || 0,

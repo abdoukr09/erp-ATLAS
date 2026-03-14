@@ -83,6 +83,10 @@ const Production = sequelize.define('Production', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  quantity: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1,
+  },
 }, {
   tableName: 'productions',
   timestamps: true,
