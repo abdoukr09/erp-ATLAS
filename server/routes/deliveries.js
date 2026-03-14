@@ -71,7 +71,12 @@ router.put('/:id', authenticate, authorize('admin', 'delivery', 'gerant'), async
 
       // Changing TO delivered (and wasn't before): create the final payment
       if (!wasDelivered && willBeDelivered) {
-        const remainingAmount = Math.max(0, Number(delivery.order.totalPrice) - Number(delivery.order.advancePayment));
+        // Calculate SUM of all existing completed payments
+        const totalPaid = await Payment.sum('amount', { 
+          where: { orderId: delivery.order.id, status: 'completed' },
+          transaction: t 
+        });
+        const remainingAmount = Math.max(0, Number(delivery.order.totalPrice) - (totalPaid || 0));
 
         // Remove any accidental duplicates first
         await Payment.destroy({
@@ -93,7 +98,7 @@ router.put('/:id', authenticate, authorize('admin', 'delivery', 'gerant'), async
 
         await delivery.order.update({
           status: 'delivered',
-          remainingPayment: remainingAmount,
+          remainingPayment: 0,
           paymentStatus: 'fully_paid',
         }, { transaction: t });
       }
@@ -103,7 +108,7 @@ router.put('/:id', authenticate, authorize('admin', 'delivery', 'gerant'), async
     await t.commit();
     res.json(delivery);
   } catch (error) {
-    await t.rollback();
+    if (t && !t.finished) await t.rollback();
     console.error('Update Delivery Error:', error);
     res.status(500).json({ error: 'Server error: ' + error.message });
   }
@@ -131,7 +136,13 @@ router.post('/:id/confirm', authenticate, authorize('admin', 'delivery', 'gerant
     }
 
     const order = delivery.order;
-    const remainingAmount = Math.max(0, Number(order.totalPrice) - Number(order.advancePayment));
+    
+    // Calculate SUM of all existing completed payments
+    const totalPaid = await Payment.sum('amount', { 
+      where: { orderId: order.id, status: 'completed' },
+      transaction: t 
+    });
+    const remainingAmount = Math.max(0, Number(order.totalPrice) - (totalPaid || 0));
 
     // 1. Mark delivery as delivered
     await delivery.update({ status: 'delivered', deliveryDate: delivery.deliveryDate || new Date() }, { transaction: t });
@@ -139,7 +150,7 @@ router.post('/:id/confirm', authenticate, authorize('admin', 'delivery', 'gerant
     // 2. Mark order as delivered
     await order.update({
       status: 'delivered',
-      remainingPayment: remainingAmount,
+      remainingPayment: 0,
       paymentStatus: 'fully_paid',
     }, { transaction: t });
 
