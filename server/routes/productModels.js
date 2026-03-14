@@ -34,7 +34,7 @@ router.get('/', authenticate, async (req, res) => {
           }
         }
       } else {
-        maxProducible = null; // null means it's a direct purchase item with no BOM required
+        maxProducible = 0; // If no direct materials, assume 0 for simplicity (requires configuration)
       }
 
       plainModel.maxProducible = maxProducible;

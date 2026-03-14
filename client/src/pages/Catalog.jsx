@@ -213,13 +213,9 @@ export default function Catalog() {
                   </td>
                 )}
                 <td>
-                  {m.maxProducible === null || (m.materials && m.materials.length === 0) ? (
-                    <span className="badge badge-blue">Achat Direct</span>
-                  ) : (
-                    <span className={`badge ${m.maxProducible > 0 ? 'badge-delivered' : 'badge-cancelled'}`}>
-                      {m.maxProducible > 0 ? `Oui (Max ${m.maxProducible})` : 'Rupture Matière'}
-                    </span>
-                  )}
+                  <span className={`badge ${m.maxProducible > 0 ? 'badge-delivered' : (m.maxProducible === -1 ? 'badge-pending' : 'badge-cancelled')}`}>
+                    {m.maxProducible === -1 ? 'N/A' : (m.maxProducible > 0 ? `Oui (Max ${m.maxProducible})` : 'Rupture Matière')}
+                  </span>
                 </td>
                 <td style={{textAlign:'center'}}>
                   <span className={`badge ${m.stock > 0 ? 'badge-delivered' : 'badge-pending'}`} style={{fontSize:'1.1em', fontWeight:700}}>
