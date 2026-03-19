@@ -14,7 +14,7 @@ export default function Production() {
   const [editing, setEditing] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [form, setForm] = useState({ 
-    orderId: '', productModelId: '', notes: '', status: 'in_progress', 
+    orderItemId: '', productModelId: '', notes: '', status: 'in_progress', 
     tasks: [] // Array of { id: rand, workerId: '', workerName: '', taskName: '', commissionType: 'percentage', commissionValue: 0 }
   });
   const [isStockProduction, setIsStockProduction] = useState(false);
@@ -41,7 +41,7 @@ export default function Production() {
     try {
       const sanitizedForm = {
         ...form,
-        orderId: form.orderId === '' ? null : form.orderId,
+        orderItemId: form.orderItemId === '' ? null : form.orderItemId,
         productModelId: form.productModelId === '' ? null : form.productModelId,
       };
       if (editing) {
@@ -50,7 +50,7 @@ export default function Production() {
         await api.post('/production', isStockProduction ? { ...sanitizedForm, orderId: null } : { ...sanitizedForm, productModelId: null });
       }
       setShowModal(false); setEditing(null);
-      setForm({ orderId: '', productModelId: '', notes: '', status: 'in_progress', tasks: [] });
+      setForm({ orderItemId: '', productModelId: '', notes: '', status: 'in_progress', tasks: [] });
       fetchProductions();
       fetchOrders(); // Refetch orders so their updated 'in_production' status removes them from the dropdown
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
@@ -60,12 +60,20 @@ export default function Production() {
     setEditing(p);
     setIsStockProduction(!p.orderId);
     setForm({ 
-      orderId: p.orderId || '', 
+      orderItemId: p.orderItemId || '', 
       productModelId: p.productModelId || '',
       status: p.status, 
       notes: p.notes || '',
-      // For editing old records, map to a single task
-      tasks: [{ 
+      // Map assignment array accurately for multiple workers support
+      tasks: p.workerAssignments ? p.workerAssignments.map(wa => ({
+        id: wa.id,
+        workerId: wa.workerId,
+        workerName: wa.worker?.name || '',
+        taskName: p.taskName || 'Fabrication',
+        commissionType: wa.commissionType || 'percentage',
+        commissionValue: wa.commissionValue || 0,
+        completedById: wa.workerId
+      })) : [{ 
         id: Date.now(), 
         workerName: p.worker || '', 
         taskName: p.taskName || p.stage || 'Fabrication', 
@@ -88,9 +96,9 @@ export default function Production() {
     const s = search.toLowerCase();
     return (
       p.worker?.toLowerCase()?.includes(s) ||
-      p.order?.sofaModel?.toLowerCase()?.includes(s) ||
+      p.orderItem?.sofaModel?.toLowerCase()?.includes(s) ||
       p.productModel?.name?.toLowerCase()?.includes(s) ||
-      p.order?.customer?.name?.toLowerCase()?.includes(s)
+      p.orderItem?.order?.customer?.name?.toLowerCase()?.includes(s)
     );
   });
 
@@ -131,15 +139,15 @@ export default function Production() {
               <tr key={p.id}>
                 <td>#{p.id}</td>
                 <td>
-                  {p.orderId ? (
-                    <span style={{fontWeight:600}}>Cde #{p.orderId}</span>
+                  {p.orderItemId ? (
+                    <span style={{fontWeight:600}}>Cde #{p.orderItem?.orderId}</span>
                   ) : (
                     <span className="badge badge-delivered">POUR STOCK</span>
                   )}
                 </td>
-                <td>{p.order?.customer?.name || '—'}</td>
+                <td>{p.orderItem?.order?.customer?.name || '—'}</td>
                 <td style={{fontWeight:600, color:'var(--text-primary)'}}>
-                  {p.order?.sofaModel || p.productModel?.name || '—'}
+                  {p.orderItem?.sofaModel || p.productModel?.name || '—'}
                 </td>
                 <td>{p.worker || '—'}</td>
                 <td><span className={`badge badge-${p.status}`}>{p.status === 'pending' ? 'En attente' : p.status === 'in_progress' ? 'En cours' : 'Terminé'}</span></td>
@@ -176,11 +184,13 @@ export default function Production() {
                  </div>
                ) : (
                  <div className="form-group">
-                   <label>Commande *</label>
-                     <select className="form-control" value={form.orderId} onChange={e => setForm({...form, orderId: e.target.value})} required disabled={editing}>
-                       <option value="">Sélectionner une commande</option>
-                       {orders.filter(o => o.status === 'pending' || (editing && o.id == form.orderId)).map(o => <option key={o.id} value={o.id}>#{o.id} - {o.sofaModel} ({o.customer?.name})</option>)}
-                     </select>
+                   <label>Commande / Article *</label>
+                     <select className="form-control" value={form.orderItemId} onChange={e => setForm({...form, orderItemId: e.target.value})} required disabled={editing}>
+                        <option value="">Sélectionner un article</option>
+                        {orders.flatMap(o => (o.items || []).filter(item => item.status === 'pending' || (editing && item.id == form.orderItemId)).map(item => (
+                          <option key={item.id} value={item.id}>Cde #${o.id} - ${item.sofaModel} (${o.customer?.name})</option>
+                        )))}
+                      </select>
                  </div>
                )}
              </>

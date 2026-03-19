@@ -1,5 +1,5 @@
 const express = require('express');
-const { Order, Customer, Material, Production, Payment, Delivery } = require('../models');
+const { Order, Customer, Material, Production, Payment, Delivery, OrderItem } = require('../models');
 const { authenticate } = require('../middleware/auth');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
@@ -43,10 +43,10 @@ router.get('/stats', authenticate, async (req, res) => {
       },
       include: [
         { 
-          model: Order, 
-          as: 'order', 
+          model: OrderItem, 
+          as: 'orderItem', 
           attributes: ['id', 'sofaModel'],
-          include: [{ model: Customer, as: 'customer', attributes: ['name'] }]
+          include: [{ model: Order, as: 'order', attributes: ['id', 'status'], include: [{ model: Customer, as: 'customer', attributes: ['name'] }] }]
         }
       ],
       order: [['createdAt', 'DESC']],
@@ -59,8 +59,11 @@ router.get('/stats', authenticate, async (req, res) => {
 
     // Recent orders
     const recentOrders = await Order.findAll({
-      attributes: ['id', 'sofaModel', 'totalPrice', 'advancePayment', 'remainingPayment', 'paymentStatus', 'status', 'orderDate'],
-      include: [{ model: Customer, as: 'customer', attributes: ['name'] }],
+      attributes: ['id', 'totalPrice', 'advancePayment', 'remainingPayment', 'paymentStatus', 'status', 'orderDate', 'createdAt'],
+      include: [
+        { model: Customer, as: 'customer', attributes: ['name'] },
+        { model: OrderItem, as: 'items', attributes: ['sofaModel', 'quantity'] }
+      ],
       order: [['createdAt', 'DESC']],
       limit: 10,
     });

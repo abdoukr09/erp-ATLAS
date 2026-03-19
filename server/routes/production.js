@@ -1,19 +1,19 @@
 const express = require('express');
-const { Production, Order, Customer, ProductModel } = require('../models');
+const { Production, Order, Customer, ProductModel, OrderItem, ProductionWorker, Employee } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
 const sequelize = require('../config/database');
 const router = express.Router();
 
 // Helper to deduct materials
-const deductMaterials = async (orderId, productModelId, targetQuantity, t) => {
+const deductMaterials = async (orderItemId, productModelId, targetQuantity, t) => {
   const { ProductModel, Material, PackItem } = require('../models');
   let targetModel = null;
 
-  if (orderId) {
-    const { Order } = require('../models');
-    const order = await Order.findByPk(orderId, { transaction: t });
-    if (order) {
-      targetModel = await ProductModel.findOne({ where: { name: order.sofaModel }, transaction: t });
+  if (orderItemId) {
+    const { OrderItem } = require('../models');
+    const item = await OrderItem.findByPk(orderItemId, { transaction: t });
+    if (item) {
+      targetModel = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
     }
   } else if (productModelId) {
     targetModel = await ProductModel.findByPk(productModelId, { transaction: t });
@@ -68,8 +68,9 @@ router.get('/', authenticate, authorize('admin', 'production', 'gerant'), async 
   try {
     const productions = await Production.findAll({
       include: [
-        { model: Order, as: 'order', attributes: ['id', 'sofaModel', 'quantity', 'status'], include: [{ model: Customer, as: 'customer', attributes: ['name'] }] },
-        { model: ProductModel, as: 'productModel', attributes: ['id', 'name'] }
+        { model: OrderItem, as: 'orderItem', attributes: ['id', 'sofaModel', 'quantity', 'status'], include: [{ model: Order, as: 'order', attributes: ['id', 'status'], include: [{ model: Customer, as: 'customer', attributes: ['name'] }] }] },
+        { model: ProductModel, as: 'productModel', attributes: ['id', 'name'] },
+        { model: ProductionWorker, as: 'workerAssignments', include: [{ model: Employee, as: 'worker', attributes: ['id', 'name'] }] }
       ],
       order: [['createdAt', 'DESC']],
     });
@@ -83,25 +84,28 @@ router.get('/', authenticate, authorize('admin', 'production', 'gerant'), async 
 router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async (req, res) => {
   const t = await Production.sequelize.transaction();
   try {
-    let { orderId, productModelId, notes, startDate, tasks, quantity } = req.body;
-    if (orderId === '') orderId = null;
+    let { orderItemId, productModelId, notes, startDate, tasks, quantity } = req.body;
+    if (orderItemId === '') orderItemId = null;
     if (productModelId === '') productModelId = null;
-    if (!orderId && !productModelId) {
+    if (!orderItemId && !productModelId) {
       await t.rollback();
-      return res.status(400).json({ error: 'Order ID or Product Model ID is required.' });
+      return res.status(400).json({ error: 'Order Item ID or Product Model ID is required.' });
     }
 
     let basePrice = null;
     let finalQuantity = quantity || 1;
+    let orderId = null;
 
-    if (orderId) {
-      const order = await Order.findByPk(orderId, { transaction: t });
-      if (order) {
-        if (order.status === 'pending') {
-          await order.update({ status: 'in_production' }, { transaction: t });
+    if (orderItemId) {
+      const { OrderItem } = require('../models');
+      const item = await OrderItem.findByPk(orderItemId, { transaction: t });
+      if (item) {
+        if (item.status === 'pending') {
+          await item.update({ status: 'in_production' }, { transaction: t });
         }
-        basePrice = order.totalPrice; // This is the final price after discount
-        finalQuantity = order.quantity;
+        basePrice = item.unitPrice; 
+        finalQuantity = item.quantity;
+        orderId = item.orderId;
       }
     } else if (productModelId) {
       const pm = await ProductModel.findByPk(productModelId, { transaction: t });
@@ -120,46 +124,49 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
        commissionValue: 0
     }];
 
-    const createdRecords = [];
+    // 1. Create ONE Production Record
+    const production = await Production.create({
+       orderId,
+       orderItemId,
+       productModelId,
+       stage: assignments[0]?.stage || 'fabrication', // Use first stage as fallback
+       worker: assignments.map(a => a.workerName || a.worker || '').filter(Boolean).join(', '), // Comma-separated names for backwards-compat!
+       notes,
+       startDate: startDate || new Date(),
+       status: 'pending',
+       materialsDeducted: false,
+       basePrice: basePrice,
+       quantity: finalQuantity,
+       taskName: assignments[0]?.taskName || 'Fabrication'
+    }, { transaction: t });
 
-    // Force status to pending on creation — materials are deducted when moving to in_progress
-    // Create one production record PER TASK/WORKER
+    // 2. Create Multiple ProductionWorker Records
     for (const task of assignments) {
        let commissionType = task.commissionType;
        let commissionValue = task.commissionValue;
-
-       // If not provided or zero, try to get from Employee's profile
-       if (task.completedById && (!commissionValue || commissionValue === 0)) {
+       const workerId = task.completedById || task.workerId;
+       
+       if (workerId && (!commissionValue || commissionValue === 0)) {
           const { Employee } = require('../models');
-          const emp = await Employee.findByPk(task.completedById, { transaction: t });
+          const emp = await Employee.findByPk(workerId, { transaction: t });
           if (emp) {
             commissionType = 'percentage';
             commissionValue = Number(emp.commissionRate || 0);
           }
        }
-       
-       const production = await Production.create({
-         orderId, 
-         productModelId, 
-         stage: task.stage || 'fabrication', 
-         worker: task.workerName || task.worker || '', 
-         notes,
-         startDate: startDate || new Date(),
-         status: 'pending',
-         materialsDeducted: false,
-         completedById: task.completedById || null,
-         taskName: task.taskName || 'Fabrication',
-         commissionType: commissionType || 'percentage',
-         commissionValue: commissionValue || 0,
-         basePrice: basePrice,
-         quantity: finalQuantity
-       }, { transaction: t });
-       
-       createdRecords.push(production);
+
+       if (workerId) {
+         await ProductionWorker.create({
+            productionId: production.id,
+            workerId: workerId,
+            commissionType: commissionType || 'percentage',
+            commissionValue: commissionValue || 0
+         }, { transaction: t });
+       }
     }
 
     await t.commit();
-    res.status(201).json(createdRecords);
+    res.status(201).json(production);
   } catch (error) {
     if (t && !t.finished) await t.rollback();
     res.status(500).json({ error: 'Server error during production initialization: ' + error.message });
@@ -173,7 +180,7 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
     if (req.body.orderId === '') req.body.orderId = null;
     if (req.body.productModelId === '') req.body.productModelId = null;
     const production = await Production.findByPk(req.params.id, {
-      include: [{ model: Order, as: 'order' }],
+      include: [{ model: OrderItem, as: 'orderItem' }],
       transaction: t
     });
     
@@ -190,9 +197,9 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
     // Deduct materials when moving to in_progress or completed
     if (needsDeduction) {
       let qty = 1;
-      if (production.order) qty = production.order.quantity;
+      if (production.orderItem) qty = production.orderItem.quantity;
       try {
-        const deducted = await deductMaterials(production.orderId, production.productModelId, qty, t);
+        const deducted = await deductMaterials(production.orderItemId, production.productModelId, qty, t);
         req.body.materialsDeducted = deducted;
       } catch (err) {
         await t.rollback();
@@ -202,8 +209,31 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
 
     // If completing, mark order as ready OR increment Model Stock
     if (newStatus === 'completed' && production.status !== 'completed') {
-      if (production.order) {
-        await production.order.update({ status: 'ready' }, { transaction: t });
+      if (production.orderItemId) {
+         // Check if all production tasks for this OrderItem are complete
+         const { Op } = require('sequelize');
+         const otherTasksCount = await Production.count({
+           where: {
+             orderItemId: production.orderItemId,
+             id: { [Op.ne]: production.id },
+             status: { [Op.ne]: 'completed' }
+           },
+           transaction: t
+         });
+
+         if (otherTasksCount === 0) {
+            await OrderItem.update({ status: 'ready' }, { where: { id: production.orderItemId }, transaction: t });
+            
+            // Check if all other items for this Order are also ready
+            const parentOrder = await Order.findByPk(production.orderItem ? production.orderItem.orderId : (await (await OrderItem.findByPk(production.orderItemId, {transaction:t})).orderId), {
+              include: [{ model: OrderItem, as: 'items' }],
+              transaction: t
+            });
+            
+            if (parentOrder && parentOrder.items.every(item => item.id === production.orderItemId || item.status === 'ready')) {
+              await parentOrder.update({ status: 'ready' }, { transaction: t });
+            }
+         }
       } else if (production.productModelId) {
         const model = await ProductModel.findByPk(production.productModelId, { transaction: t });
         if (model) {
@@ -226,15 +256,15 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
 });
 
 // Helper to revert materials (return to stock)
-const revertMaterials = async (orderId, productModelId, targetQuantity, t) => {
+const revertMaterials = async (orderItemId, productModelId, targetQuantity, t) => {
   const { ProductModel, Material } = require('../models');
   let targetModel = null;
 
-  if (orderId) {
-    const { Order } = require('../models');
-    const order = await Order.findByPk(orderId, { transaction: t });
-    if (order) {
-      targetModel = await ProductModel.findOne({ where: { name: order.sofaModel }, transaction: t });
+  if (orderItemId) {
+    const { OrderItem } = require('../models');
+    const item = await OrderItem.findByPk(orderItemId, { transaction: t });
+    if (item) {
+      targetModel = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
     }
   } else if (productModelId) {
     targetModel = await ProductModel.findByPk(productModelId, { transaction: t });
@@ -260,7 +290,7 @@ router.delete('/:id', authenticate, authorize('admin', 'production', 'gerant'), 
   const t = await sequelize.transaction();
   try {
     const production = await Production.findByPk(req.params.id, {
-      include: [{ model: Order, as: 'order' }],
+      include: [{ model: OrderItem, as: 'orderItem' }],
       transaction: t
     });
     if (!production) {
@@ -271,8 +301,8 @@ router.delete('/:id', authenticate, authorize('admin', 'production', 'gerant'), 
     // If materials were deducted, revert them
     if (production.materialsDeducted) {
       let qty = 1;
-      if (production.order) qty = production.order.quantity;
-      await revertMaterials(production.orderId, production.productModelId, qty, t);
+      if (production.orderItem) qty = production.orderItem.quantity;
+      await revertMaterials(production.orderItemId, production.productModelId, qty, t);
     }
 
     await production.destroy({ transaction: t });

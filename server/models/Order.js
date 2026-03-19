@@ -17,7 +17,7 @@ const Order = sequelize.define('Order', {
   },
   sofaModel: {
     type: DataTypes.STRING(100),
-    allowNull: false,
+    allowNull: true,
   },
   fabric: {
     type: DataTypes.STRING(50),
@@ -29,7 +29,7 @@ const Order = sequelize.define('Order', {
   },
   quantity: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
     defaultValue: 1,
   },
   unitPrice: {

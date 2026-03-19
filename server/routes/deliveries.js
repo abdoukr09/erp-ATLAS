@@ -1,5 +1,5 @@
 const express = require('express');
-const { Delivery, Order, Payment } = require('../models');
+const { Delivery, Order, Payment, OrderItem } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
 const router = express.Router();
 
@@ -11,8 +11,11 @@ router.get('/', authenticate, authorize('admin', 'delivery', 'gerant'), async (r
       include: [{ 
         model: Order, 
         as: 'order', 
-        attributes: ['id', 'sofaModel', 'quantity', 'status', 'totalPrice', 'advancePayment', 'remainingPayment', 'paymentStatus', 'deliveryAddress'],
-        include: [{ model: Customer, as: 'customer', attributes: ['name'] }]
+        attributes: ['id', 'status', 'totalPrice', 'advancePayment', 'remainingPayment', 'paymentStatus', 'deliveryAddress'],
+        include: [
+          { model: Customer, as: 'customer', attributes: ['name'] },
+          { model: OrderItem, as: 'items', attributes: ['sofaModel', 'quantity'] }
+        ]
       }],
       order: [['createdAt', 'DESC']],
     });
@@ -59,6 +62,8 @@ router.put('/:id', authenticate, authorize('admin', 'delivery', 'gerant'), async
     const newStatus = req.body.status;
     const wasDelivered = delivery.status === 'delivered';
     const willBeDelivered = newStatus === 'delivered';
+    const wasCancelled = delivery.status === 'cancelled';
+    const willBeCancelled = newStatus === 'cancelled';
 
     if (delivery.order) {
       // Changing FROM delivered → something else: reverse the final payment
@@ -107,6 +112,32 @@ router.put('/:id', authenticate, authorize('admin', 'delivery', 'gerant'), async
           remainingPayment: 0,
           paymentStatus: 'fully_paid',
         }, { transaction: t });
+      }
+
+      // Changing TO cancelled: increase stock, set order to cancelled
+      if (!wasCancelled && willBeCancelled) {
+        const { ProductModel } = require('../models');
+        const model = await ProductModel.findOne({ where: { name: delivery.order.sofaModel }, transaction: t });
+        if (model) {
+          await model.update({ stock: model.stock + (delivery.order.quantity || 1) }, { transaction: t });
+        }
+        await delivery.order.update({ status: 'cancelled' }, { transaction: t });
+      }
+
+      // Changing FROM cancelled: decrease stock, set order to ready
+      if (wasCancelled && !willBeCancelled) {
+        const { ProductModel } = require('../models');
+        const model = await ProductModel.findOne({ where: { name: delivery.order.sofaModel }, transaction: t });
+        if (model) {
+          const qtyNeeded = delivery.order.quantity || 1;
+          if (model.stock >= qtyNeeded) {
+            await model.update({ stock: model.stock - qtyNeeded }, { transaction: t });
+            await delivery.order.update({ status: 'ready' }, { transaction: t });
+          } else {
+            await t.rollback();
+            return res.status(400).json({ error: 'Stock insuffisant pour rétablir cette livraison.' });
+          }
+        }
       }
     }
 

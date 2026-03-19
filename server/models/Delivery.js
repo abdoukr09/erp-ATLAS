@@ -28,7 +28,7 @@ const Delivery = sequelize.define('Delivery', {
     allowNull: true,
   },
   status: {
-    type: DataTypes.ENUM('scheduled', 'in_transit', 'delivered', 'failed'),
+    type: DataTypes.ENUM('scheduled', 'in_transit', 'delivered', 'failed', 'cancelled'),
     allowNull: false,
     defaultValue: 'scheduled',
   },

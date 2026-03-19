@@ -1,134 +1,150 @@
 const express = require('express');
-const { Employee, EmployeePayment, Production, ProductModel, Order } = require('../models');
+const { Employee, EmployeePayment, Production, Order, ProductModel } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
-const router = express.Router();
 const { Op } = require('sequelize');
+const router = express.Router();
 
-// --- EMPLOYEES CRUD ---
-router.get('/', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+// GET /api/employees - List all employees with payments
+router.get('/', authenticate, async (req, res) => {
   try {
-    const employees = await Employee.findAll({ 
+    const employees = await Employee.findAll({
+      include: [{ model: EmployeePayment, as: 'payments', attributes: ['id', 'amount', 'date', 'description'] }],
       order: [['name', 'ASC']],
-      include: [{ model: EmployeePayment, as: 'payments' }]
     });
     res.json(employees);
   } catch (error) {
-    res.status(500).json({ error: 'Server error' });
+    console.error('Get Employees Error:', error);
+    res.status(500).json({ error: 'Server error.' });
   }
 });
 
-router.post('/', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+// GET /api/employees/:id/performance - Calculate performance for a month
+router.get('/:id/performance', authenticate, async (req, res) => {
   try {
-    const employee = await Employee.create(req.body);
-    res.status(201).json(employee);
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+    const { month } = req.query; // Expected: 'YYYY-MM'
+    if (!month) return res.status(400).json({ error: 'Month is required.' });
 
-router.put('/:id', authenticate, authorize('admin', 'gerant'), async (req, res) => {
-  try {
-    const employee = await Employee.findByPk(req.params.id);
-    if (!employee) return res.status(404).json({ error: 'Employee not found' });
-    await employee.update(req.body);
-    res.json(employee);
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+    const year = parseInt(month.split('-')[0]);
+    const monthNum = parseInt(month.split('-')[1]);
+    const startDate = `${month}-01`;
+    const endDate = `${month}-${new Date(year, monthNum, 0).getDate()}`; // Last day of month
 
-router.delete('/:id', authenticate, authorize('admin', 'gerant'), async (req, res) => {
-  try {
-    const employee = await Employee.findByPk(req.params.id);
-    if (!employee) return res.status(404).json({ error: 'Employee not found' });
-    await employee.destroy();
-    res.json({ message: 'Deleted' });
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// --- EMPLOYEE PAYMENTS ---
-router.post('/:id/payments', authenticate, authorize('admin', 'gerant'), async (req, res) => {
-  try {
-    req.body.employeeId = req.params.id;
-    const payment = await EmployeePayment.create(req.body);
-    res.status(201).json(payment);
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-router.delete('/:empId/payments/:payId', authenticate, authorize('admin', 'gerant'), async (req, res) => {
-  try {
-    const payment = await EmployeePayment.findByPk(req.params.payId);
-    if (!payment) return res.status(404).json({ error: 'Payment not found' });
-    await payment.destroy();
-    res.json({ message: 'Deleted' });
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// --- PERFORMANCE & COMMISSIONS ---
-// Get all items completed by this employee in a given month (YYYY-MM)
-router.get('/:id/performance', authenticate, authorize('admin', 'gerant'), async (req, res) => {
-  try {
     const employeeId = req.params.id;
-    const monthStr = req.query.month; // e.g., '2023-10'
-    
-    if (!monthStr) return res.status(400).json({ error: 'Month parameter required (YYYY-MM)' });
 
-    const startDate = `${monthStr}-01`;
-    // Create an end date for the query (first day of next month)
-    const year = parseInt(monthStr.split('-')[0]);
-    const month = parseInt(monthStr.split('-')[1]);
-    const nextMonthObj = new Date(year, month, 1);
-    const endDate = nextMonthObj.toISOString().split('T')[0];
+    const { ProductionWorker } = require('../models');
 
-    const completedProductions = await Production.findAll({
-      where: {
-        completedById: employeeId,
-        status: 'completed',
-        completionDate: {
-          [Op.gte]: startDate,
-          [Op.lt]: endDate
-        }
-      },
+    const productionWorkers = await ProductionWorker.findAll({
+      where: { workerId: employeeId },
       include: [
-        { model: ProductModel, as: 'productModel' }
+        { 
+          model: Production, 
+          as: 'production', 
+          where: { 
+            status: 'completed',
+            completionDate: { [Op.between]: [startDate, endDate] }
+          },
+          include: [
+            { model: Order, as: 'order', attributes: ['totalPrice'] },
+            { model: ProductModel, as: 'productModel', attributes: ['name'] }
+          ]
+        }
       ]
+    });
+
+    const productions = productionWorkers.map(pw => {
+       const p = pw.production.toJSON();
+       p.commissionValue = pw.commissionValue; // Custom individual commission inside junction sub-row
+       return p;
     });
 
     const sales = await Order.findAll({
       where: {
         salesmanId: employeeId,
-        orderDate: {
-          [Op.gte]: startDate,
-          [Op.lt]: endDate
-        }
+        orderDate: { [Op.between]: [startDate, endDate] }
       }
     });
 
-    // Helper: find actual catalogue price
-    // If order relates to a product model, use its basePrice
-    // We try to find the matching model from ProductModel table
-    const salesWithPrice = await Promise.all(sales.map(async (o) => {
-      const pm = await ProductModel.findOne({ where: { name: o.sofaModel } });
-      return {
-        ...o.toJSON(),
-        cataloguePrice: pm ? pm.basePrice : o.unitPrice,
-        finalPrice: o.totalPrice
-      };
-    }));
-
-    res.json({
-      productions: completedProductions,
-      sales: salesWithPrice
-    });
+    res.json({ productions, sales });
   } catch (error) {
-    console.error('Performance Calc Error:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    console.error('Get Performance Error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// POST /api/employees - Create employee
+router.post('/', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+  try {
+    const { name, category, baseSalary, insuranceCost, commissionRate, notes } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required.' });
+
+    const employee = await Employee.create({
+      name, category, baseSalary, insuranceCost, commissionRate, notes
+    });
+    res.status(201).json(employee);
+  } catch (error) {
+    console.error('Create Employee Error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// PUT /api/employees/:id - Update employee
+router.put('/:id', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+  try {
+    const employee = await Employee.findByPk(req.params.id);
+    if (!employee) return res.status(404).json({ error: 'Employee not found.' });
+
+    await employee.update(req.body);
+    res.json(employee);
+  } catch (error) {
+    console.error('Update Employee Error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// DELETE /api/employees/:id - Delete employee
+router.delete('/:id', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+  try {
+    const employee = await Employee.findByPk(req.params.id);
+    if (!employee) return res.status(404).json({ error: 'Employee not found.' });
+
+    await employee.destroy();
+    res.json({ message: 'Employee deleted.' });
+  } catch (error) {
+    console.error('Delete Employee Error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// POST /api/employees/:id/payments - Add payment for employee
+router.post('/:id/payments', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+  try {
+    const { amount, date, description } = req.body;
+    if (!amount || !date) return res.status(400).json({ error: 'Amount and date are required.' });
+
+    const payment = await EmployeePayment.create({
+      employeeId: req.params.id,
+      amount,
+      date,
+      description
+    });
+    res.status(201).json(payment);
+  } catch (error) {
+    console.error('Create Employee Payment Error:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// DELETE /api/employees/:id/payments/:payId - Delete employee payment
+router.delete('/:id/payments/:payId', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+  try {
+    const payment = await EmployeePayment.findByPk(req.params.payId);
+    if (!payment) return res.status(404).json({ error: 'Payment not found.' });
+
+    await payment.destroy();
+    res.json({ message: 'Payment deleted.' });
+  } catch (error) {
+    console.error('Delete Employee Payment Error:', error);
+    res.status(500).json({ error: 'Server error.' });
   }
 });
 

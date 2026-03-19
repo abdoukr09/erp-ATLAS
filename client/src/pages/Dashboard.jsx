@@ -253,7 +253,15 @@ export default function Dashboard() {
               <tr key={order.id}>
                 <td>#{order.id}</td>
                 <td>{order.customer?.name || '—'}</td>
-                <td>{order.sofaModel}</td>
+                <td>
+                  {order.items && order.items.length > 0 ? (
+                    <div style={{fontSize: '0.85em'}}>
+                      {order.items.map((item, idx) => (
+                        <div key={idx}><strong>{item.sofaModel}</strong> x{item.quantity}</div>
+                      ))}
+                    </div>
+                  ) : <span>{order.sofaModel || '—'}</span>}
+                </td>
                 <td>{Number(order.totalPrice).toLocaleString()} DA</td>
                 <td style={{color: '#3b82f6', fontWeight: 600}}>{Number(order.advancePayment || 0).toLocaleString()} DA</td>
                 <td style={{color: '#22c55e', fontWeight: 600}}>{Number(order.remainingPayment || 0).toLocaleString()} DA</td>
@@ -292,7 +300,7 @@ export default function Dashboard() {
                   <tr key={prod.id}>
                     <td style={{ fontWeight: 600 }}>#{prod.orderId}</td>
                     <td>{prod.order?.customer?.name || '—'}</td>
-                    <td>{prod.order?.sofaModel || '—'}</td>
+                    <td>{prod.orderItem?.sofaModel || '—'}</td>
                     <td style={{ textTransform: 'capitalize' }}>{prod.stage}</td>
                     <td>
                       <span className={`badge badge-${prod.status === 'in_progress' ? 'in_production' : 'pending'}`}>

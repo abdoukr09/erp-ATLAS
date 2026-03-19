@@ -19,7 +19,6 @@ const menuItems = [
   { section: 'Administration', icon: Briefcase, label: 'Personnel & Paie', path: '/employees', roles: ['admin', 'gerant'] },
   { section: 'Administration', icon: Receipt, label: 'Tarifs & Coûts', path: '/tariffs', roles: ['admin'] },
   { section: 'Administration', icon: ShieldCheck, label: 'Utilisateurs', path: '/users', roles: ['admin'] },
-  { section: 'Administration', icon: Database, label: 'Base de Données', path: '/db-explorer', roles: ['admin'] },
 ];
 
 export default function Layout({ children }) {

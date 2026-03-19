@@ -15,6 +15,14 @@ const Production = sequelize.define('Production', {
       key: 'id',
     },
   },
+  orderItemId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'order_items',
+      key: 'id',
+    },
+  },
   productModelId: {
     type: DataTypes.INTEGER,
     allowNull: true,

@@ -1,5 +1,5 @@
 const express = require('express');
-const { Order, Customer, Payment, Production, Delivery } = require('../models');
+const { Order, Customer, Payment, Production, Delivery, OrderItem, OrderSalesman, Employee } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
 const router = express.Router();
 
@@ -10,6 +10,8 @@ router.get('/', authenticate, async (req, res) => {
       include: [
         { model: Customer, as: 'customer', attributes: ['id', 'name', 'phone'] },
         { model: Payment, as: 'payments', attributes: ['id', 'amount', 'status', 'method'] },
+        { model: OrderItem, as: 'items' },
+        { model: OrderSalesman, as: 'salesmen', include: [{ model: Employee, as: 'salesman', attributes: ['name'] }] }
       ],
       order: [['createdAt', 'DESC']],
     });
@@ -26,6 +28,8 @@ router.get('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (r
       include: [
         { model: Customer, as: 'customer' },
         { model: Payment, as: 'payments' },
+        { model: OrderItem, as: 'items' },
+        { model: OrderSalesman, as: 'salesmen', include: [{ model: Employee, as: 'salesman', attributes: ['name'] }] }
       ],
     });
     if (!order) return res.status(404).json({ error: 'Order not found.' });
@@ -37,106 +41,195 @@ router.get('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (r
 
 // POST /api/orders
 router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req, res) => {
+  const t = await Order.sequelize.transaction();
   try {
     const { 
-      customerId, sofaModel, fabric, color, quantity, unitPrice, 
+      customerId, items, salesmen, 
       deliveryAddress, notes, orderDate, discountPercentage, useStock, 
-      salesmanId, commissionType, commissionValue 
+      advancePayment, paymentMethod 
     } = req.body;
     
-    if (!customerId || !sofaModel) {
-      return res.status(400).json({ error: 'Customer and sofa model are required.' });
+    if (!customerId || !items || !Array.isArray(items) || items.length === 0) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Client et au moins un article sont requis.' });
     }
 
-    const customer = await Customer.findByPk(customerId);
-    if (!customer) return res.status(404).json({ error: 'Customer not found.' });
+    const customer = await Customer.findByPk(customerId, { transaction: t });
+    if (!customer) { await t.rollback(); return res.status(404).json({ error: 'Client non trouvé.' }); }
 
-    const subtotal = (quantity || 1) * (unitPrice || 0);
-    const discount = subtotal * ((discountPercentage || 0) / 100);
-    const totalPrice = req.body.totalPrice !== undefined ? req.body.totalPrice : (subtotal - discount);
-
-    let initialStatus = 'pending';
-    if (useStock) {
-      const { ProductModel } = require('../models');
-      const model = await ProductModel.findOne({ where: { name: sofaModel } });
-      if (model && model.stock >= (quantity || 1)) {
-        await model.update({ stock: model.stock - (quantity || 1) });
-        initialStatus = 'ready';
-      } else {
-        return res.status(400).json({ error: 'Stock insuffisant pour remplir cette commande directement.' });
-      }
+    let computedTotal = 0;
+    for (const item of items) {
+      const qty = item.quantity || 1;
+      const price = item.unitPrice || 0;
+      const disc = item.discountPercentage || 0;
+      computedTotal += qty * price * (1 - disc / 100);
     }
+    const finalPrice = req.body.totalPrice !== undefined ? req.body.totalPrice : Math.round(computedTotal);
 
-    const advanceAmount = req.body.advancePayment || 0;
+    const advanceAmount = advancePayment || 0;
     const order = await Order.create({
-      customerId, sofaModel, fabric, color,
-      quantity: quantity || 1,
-      unitPrice: unitPrice || 0,
-      discountPercentage: discountPercentage || 0,
-      totalPrice,
+      customerId,
+      totalPrice: finalPrice,
       advancePayment: advanceAmount,
-      remainingPayment: totalPrice - advanceAmount,
-      paymentStatus: advanceAmount >= totalPrice ? 'fully_paid' : (advanceAmount > 0 ? 'advance_paid' : 'unpaid'),
+      remainingPayment: finalPrice - advanceAmount,
+      paymentStatus: advanceAmount >= finalPrice ? 'fully_paid' : (advanceAmount > 0 ? 'advance_paid' : 'unpaid'),
       deliveryAddress: deliveryAddress || customer.address,
       notes, orderDate: orderDate || new Date(),
-      status: initialStatus,
-      salesmanId: salesmanId || null,
-      commissionType: commissionType || 'percentage',
-      commissionValue: commissionValue || 0,
-    });
+      status: 'pending'
+    }, { transaction: t });
+
+    for (const item of items) {
+       await OrderItem.create({
+         orderId: order.id,
+         sofaModel: item.sofaModel,
+         quantity: item.quantity || 1,
+         unitPrice: item.unitPrice || 0,
+         discountPercentage: item.discountPercentage || 0,
+         fabric: item.fabric || '',
+         color: item.color || '',
+         status: 'pending'
+       }, { transaction: t });
+    }
+
+    if (salesmen && Array.isArray(salesmen) && salesmen.length > 0) {
+       for (const s of salesmen) {
+          await OrderSalesman.create({
+            orderId: order.id,
+            salesmanId: s.salesmanId,
+            splitPercentage: s.splitPercentage || (100 / salesmen.length)
+          }, { transaction: t });
+       }
+    } else if (req.body.salesmanId) {
+       await OrderSalesman.create({
+         orderId: order.id,
+         salesmanId: req.body.salesmanId,
+         splitPercentage: 100.00
+       }, { transaction: t });
+    }
 
     if (advanceAmount > 0) {
       await Payment.create({
         orderId: order.id,
         amount: advanceAmount,
-        method: req.body.paymentMethod || 'cash',
+        method: paymentMethod || 'cash',
         status: 'completed',
         type: 'advance',
         notes: 'Avance à la commande',
-      });
+      }, { transaction: t });
     }
 
+    await t.commit();
     res.status(201).json(order);
   } catch (error) {
-    res.status(500).json({ error: 'Server error.' });
+    if (t && !t.finished) await t.rollback();
+    res.status(500).json({ error: 'Server error: ' + error.message });
   }
 });
 
 // PUT /api/orders/:id
 router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (req, res) => {
+  const t = await Order.sequelize.transaction();
   try {
-    const order = await Order.findByPk(req.params.id);
-    if (!order) return res.status(404).json({ error: 'Order not found.' });
-
-    if (req.body.totalPrice !== undefined) {
-      req.body.totalPrice = req.body.totalPrice;
-      // Recalculate remaining payment if total changes
-      // We need to fetch current total payments for this order
-      const totalPaid = await Payment.sum('amount', { where: { orderId: order.id, status: 'completed' } });
-      req.body.remainingPayment = req.body.totalPrice - (totalPaid || 0);
-      req.body.paymentStatus = req.body.remainingPayment <= 0 ? 'fully_paid' : ((totalPaid || 0) > 0 ? 'advance_paid' : 'unpaid');
-    } else if (req.body.quantity !== undefined || req.body.unitPrice !== undefined || req.body.discountPercentage !== undefined) {
-      const qty = req.body.quantity !== undefined ? req.body.quantity : order.quantity;
-      const price = req.body.unitPrice !== undefined ? req.body.unitPrice : order.unitPrice;
-      const disc = req.body.discountPercentage !== undefined ? req.body.discountPercentage : order.discountPercentage;
-      
-      const subtotal = qty * price;
-      const discount = subtotal * (disc / 100);
-      req.body.totalPrice = subtotal - discount;
+    const order = await Order.findByPk(req.params.id, { transaction: t });
+    if (!order) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Order not found.' });
     }
 
-    if (req.body.advancePayment !== undefined) {
-      req.body.advancePayment = req.body.advancePayment;
+    const wasDelivered = order.status === 'delivered';
+    const willBeDelivered = req.body.status === 'delivered';
+
+    // Recalculate Total Price based on sub-items if passed
+    if (req.body.items && Array.isArray(req.body.items)) {
+      let computedTotal = 0;
+      for (const item of req.body.items) {
+        if (item.id) {
+          const existingItem = await OrderItem.findByPk(item.id, { transaction: t });
+          if (existingItem && existingItem.orderId === order.id) {
+            const qty = item.quantity !== undefined ? item.quantity : existingItem.quantity;
+            const price = item.unitPrice !== undefined ? item.unitPrice : existingItem.unitPrice;
+            const disc = item.discountPercentage !== undefined ? item.discountPercentage : (existingItem.discountPercentage || 0);
+
+            await existingItem.update({
+              sofaModel: item.sofaModel !== undefined ? item.sofaModel : existingItem.sofaModel,
+              quantity: qty,
+              unitPrice: price,
+              discountPercentage: disc,
+              fabric: item.fabric !== undefined ? item.fabric : existingItem.fabric,
+              color: item.color !== undefined ? item.color : existingItem.color,
+              status: item.status !== undefined ? item.status : existingItem.status,
+            }, { transaction: t });
+            computedTotal += qty * price * (1 - disc / 100);
+          }
+        } else {
+          await OrderItem.create({
+            orderId: order.id,
+            sofaModel: item.sofaModel,
+            quantity: item.quantity || 1,
+            unitPrice: item.unitPrice || 0,
+            discountPercentage: item.discountPercentage || 0,
+            fabric: item.fabric || '',
+            color: item.color || '',
+            status: 'pending'
+          }, { transaction: t });
+          computedTotal += (item.quantity || 1) * (item.unitPrice || 0) * (1 - (item.discountPercentage || 0) / 100);
+        }
+      }
+      req.body.totalPrice = Math.round(computedTotal);
+    }
+
+    if (req.body.salesmen && Array.isArray(req.body.salesmen)) {
+       await OrderSalesman.destroy({ where: { orderId: order.id }, transaction: t });
+       for (const s of req.body.salesmen) {
+          await OrderSalesman.create({
+            orderId: order.id,
+            salesmanId: s.salesmanId,
+            splitPercentage: s.splitPercentage || (100 / req.body.salesmen.length)
+          }, { transaction: t });
+       }
+    }
+
+    if (req.body.totalPrice !== undefined) {
+      const totalPaid = await Payment.sum('amount', { where: { orderId: order.id, status: 'completed' }, transaction: t }) || 0;
+      req.body.remainingPayment = req.body.totalPrice - totalPaid;
+      req.body.paymentStatus = req.body.remainingPayment <= 0 ? 'fully_paid' : (totalPaid > 0 ? 'advance_paid' : 'unpaid');
+    }
+
+    // Automatic Payment on Delivery update
+    if (!wasDelivered && willBeDelivered) {
+      const totalPaid = await Payment.sum('amount', { 
+        where: { orderId: order.id, status: 'completed' },
+        transaction: t 
+      }) || 0;
+      const currentTotal = req.body.totalPrice !== undefined ? req.body.totalPrice : order.totalPrice;
+      const remainingAmount = Math.max(0, Number(currentTotal) - totalPaid);
+
+      if (remainingAmount > 0) {
+        await Payment.create({
+          orderId: order.id,
+          amount: remainingAmount,
+          method: req.body.paymentMethod || 'cash',
+          status: 'completed',
+          type: 'final',
+          paymentDate: new Date(),
+          notes: 'Paiement final automatique à la livraison',
+        }, { transaction: t });
+      }
+      req.body.remainingPayment = 0;
+      req.body.paymentStatus = 'fully_paid';
     }
 
     // Allow updating commission terms
     if (req.body.commissionType !== undefined) req.body.commissionType = req.body.commissionType;
     if (req.body.commissionValue !== undefined) req.body.commissionValue = req.body.commissionValue;
 
-    await order.update(req.body);
+    await order.update(req.body, { transaction: t });
+    await t.commit();
     res.json(order);
   } catch (error) {
-    res.status(500).json({ error: 'Server error.' });
+    if (t && !t.finished) await t.rollback();
+    console.error('Update Order Error:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
   }
 });
 

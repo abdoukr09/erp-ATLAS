@@ -213,7 +213,7 @@ export default function Employees() {
                      <div>
                        <h5 style={{fontSize:'0.9rem', marginBottom:5, color:'var(--text-secondary)'}}>Production (Ouvriers / Artisans)</h5>
                        <table style={{fontSize: '0.85rem'}}>
-                         <thead><tr><th>Date</th><th>Commande/Modèle</th></tr></thead>
+                         <thead><tr><th>Date</th><th>Commande/Modèle</th><th>Prix Final Cde</th></tr></thead>
                          <tbody>
                           {(performanceData.productions || []).length > 0 ? (performanceData.productions || []).map(p => (
                             <tr key={p.id}>
@@ -224,9 +224,12 @@ export default function Employees() {
                                   Valeur: {Number(p.basePrice || 0).toLocaleString()} DA
                                 </div>
                               </td>
+                              <td style={{color:'var(--accent-green)', fontWeight:'bold'}}>
+                                {p.order?.totalPrice ? `${Number(p.order.totalPrice).toLocaleString()} DA` : '-'}
+                              </td>
                             </tr>
                           )) : (
-                            <tr><td colSpan="2" style={{textAlign:'center', color:'var(--text-muted)'}}>Aucune production ce mois-ci.</td></tr>
+                            <tr><td colSpan="3" style={{textAlign:'center', color:'var(--text-muted)'}}>Aucune production ce mois-ci.</td></tr>
                           )}
                          </tbody>
                        </table>

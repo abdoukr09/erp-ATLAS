@@ -1,5 +1,5 @@
 const express = require('express');
-const { Payment, Order, Customer } = require('../models');
+const { Payment, Order, Customer, OrderItem } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
 const router = express.Router();
 
@@ -10,7 +10,10 @@ router.get('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req,
       include: [{
         model: Order, as: 'order',
         attributes: ['id', 'sofaModel', 'totalPrice', 'status'],
-        include: [{ model: Customer, as: 'customer', attributes: ['id', 'name'] }],
+        include: [
+          { model: Customer, as: 'customer', attributes: ['id', 'name'] },
+          { model: OrderItem, as: 'items', attributes: ['sofaModel', 'quantity'] }
+        ],
       }],
       order: [['createdAt', 'DESC']],
     });

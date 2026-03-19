@@ -47,11 +47,19 @@ export default function Finance() {
   const today = new Date().toISOString().split('T')[0];
   const todayRevenue = payments.filter(p => p.status === 'completed' && p.paymentDate === today).reduce((sum, p) => sum + Number(p.amount), 0);
 
-  const filtered = payments.filter(p =>
-    p.order?.sofaModel?.toLowerCase()?.includes(search.toLowerCase()) ||
-    p.order?.customer?.name?.toLowerCase()?.includes(search.toLowerCase()) ||
-    p.method?.toLowerCase()?.includes(search.toLowerCase())
-  );
+  const filtered = payments
+    .filter(p =>
+      (p.order?.items && p.order.items.some(i => i.sofaModel?.toLowerCase()?.includes(search.toLowerCase()))) ||
+      p.order?.sofaModel?.toLowerCase()?.includes(search.toLowerCase()) ||
+      p.order?.customer?.name?.toLowerCase()?.includes(search.toLowerCase()) ||
+      p.method?.toLowerCase()?.includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      const dateA = a.paymentDate || '';
+      const dateB = b.paymentDate || '';
+      if (dateA !== dateB) return dateB.localeCompare(dateA);
+      return b.id - a.id; // Secondary sort by id
+    });
 
   return (
     <div className="page-transition">
@@ -93,7 +101,13 @@ export default function Finance() {
             {filtered.length > 0 ? filtered.map(p => (
               <tr key={p.id}>
                 <td>#{p.id}</td>
-                <td>#{p.orderId} - {p.order?.sofaModel || ''}</td>
+                <td>
+                  <div style={{fontSize: '0.85em'}}>
+                    #{p.orderId} - {p.order?.items && p.order.items.length > 0 
+                      ? p.order.items.map(i => i.sofaModel).join(', ') 
+                      : p.order?.sofaModel || ''}
+                  </div>
+                </td>
                 <td style={{fontWeight:600, color:'var(--text-primary)'}}>{p.order?.customer?.name || '—'}</td>
                 <td>
                   {p.type === 'advance' ? (

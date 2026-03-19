@@ -78,7 +78,8 @@ export default function Deliveries() {
   const filtered = deliveries.filter(d =>
     d.driver?.toLowerCase()?.includes(search.toLowerCase()) ||
     d.status?.toLowerCase()?.includes(search.toLowerCase()) ||
-    d.order?.sofaModel?.toLowerCase()?.includes(search.toLowerCase())
+    d.order?.sofaModel?.toLowerCase()?.includes(search.toLowerCase()) ||
+    (d.order?.items && d.order.items.some(i => i.sofaModel?.toLowerCase()?.includes(search.toLowerCase())))
   );
 
   return (
@@ -108,7 +109,15 @@ export default function Deliveries() {
                 <td>#{d.id}</td>
                 <td>Commande #{d.orderId}</td>
                 <td><span style={{fontWeight:600}}>{d.order?.customer?.name || '—'}</span></td>
-                <td style={{fontWeight:600, color:'var(--text-primary)'}}>{d.order?.sofaModel || '—'}</td>
+                <td>
+                  {d.order?.items && d.order.items.length > 0 ? (
+                    <div style={{fontSize: '0.85em'}}>
+                      {d.order.items.map((item, idx) => (
+                        <div key={idx}><strong>{item.sofaModel}</strong> x{item.quantity}</div>
+                      ))}
+                    </div>
+                  ) : <span>{d.order?.sofaModel || '—'}</span>}
+                </td>
                 <td>{d.driver || '—'}</td>
                 <td>
                   {isFullyPaid ? (
@@ -118,7 +127,7 @@ export default function Deliveries() {
                   )}
                 </td>
                 <td>{d.deliveryDate || '—'}</td>
-                <td><span className={`badge badge-${d.status}`}>{d.status === 'scheduled' ? 'Planifiée' : d.status === 'in_transit' ? 'En transit' : d.status === 'delivered' ? 'Livrée' : 'Échouée'}</span></td>
+                <td><span className={`badge badge-${d.status}`}>{d.status === 'scheduled' ? 'Planifiée' : d.status === 'in_transit' ? 'En transit' : d.status === 'delivered' ? 'Livrée' : d.status === 'cancelled' ? 'Annulée' : 'Échouée'}</span></td>
                 <td>
                   <div className="action-buttons">
                     {!isDelivered && (
@@ -172,6 +181,7 @@ export default function Deliveries() {
               <option value="in_transit">En transit</option>
               <option value="delivered">Livrée</option>
               <option value="failed">Échouée</option>
+              <option value="cancelled">Annulée</option>
             </select>
           </div>
           <div className="form-group">
