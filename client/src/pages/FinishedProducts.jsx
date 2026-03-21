@@ -24,7 +24,8 @@ export default function FinishedProducts() {
 
   const filteredOrders = orders.filter(o =>
     o.sofaModel?.toLowerCase()?.includes(search.toLowerCase()) ||
-    o.customer?.name?.toLowerCase()?.includes(search.toLowerCase())
+    o.customer?.name?.toLowerCase()?.includes(search.toLowerCase()) ||
+    (o.items && o.items.some(i => i.sofaModel?.toLowerCase()?.includes(search.toLowerCase())))
   );
 
   const filteredModels = productModels.filter(m =>

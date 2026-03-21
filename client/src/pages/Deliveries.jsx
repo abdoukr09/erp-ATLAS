@@ -160,7 +160,7 @@ export default function Deliveries() {
               <label>Commande *</label>
               <select className="form-control" value={form.orderId} onChange={e => setForm({...form, orderId: e.target.value})} required>
                 <option value="">Sélectionner une commande</option>
-                {orders.filter(o => o.status === 'ready').map(o => <option key={o.id} value={o.id}>#{o.id} - {o.sofaModel} ({o.customer?.name})</option>)}
+                {orders.filter(o => o.status === 'ready').map(o => <option key={o.id} value={o.id}>#{o.id} - {o.items?.map(i => i.sofaModel).join(', ') || o.sofaModel} ({o.customer?.name})</option>)}
               </select>
             </div>
           )}

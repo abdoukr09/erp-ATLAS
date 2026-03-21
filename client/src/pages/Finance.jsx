@@ -143,7 +143,7 @@ export default function Finance() {
               <label>Commande *</label>
               <select className="form-control" value={form.orderId} onChange={e => setForm({...form, orderId: e.target.value})} required>
                 <option value="">Sélectionner une commande</option>
-                {orders.map(o => <option key={o.id} value={o.id}>#{o.id} - {o.sofaModel} ({Number(o.totalPrice).toLocaleString()} DA)</option>)}
+                {orders.map(o => <option key={o.id} value={o.id}>#{o.id} - {o.items?.map(i => i.sofaModel).join(', ') || o.sofaModel} ({Number(o.totalPrice).toLocaleString()} DA)</option>)}
               </select>
             </div>
           )}
