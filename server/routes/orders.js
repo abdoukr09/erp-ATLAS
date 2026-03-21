@@ -1,5 +1,5 @@
 const express = require('express');
-const { Order, Customer, Payment, Production, Delivery, OrderItem, OrderSalesman, Employee } = require('../models');
+const { Order, Customer, Payment, Production, Delivery, OrderItem, OrderSalesman, Employee, ProductModel, Material, ModelMaterial, MaterialReservation } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
 const router = express.Router();
 
@@ -91,6 +91,39 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req
        }, { transaction: t });
     }
 
+    // ── Material Reservation: lock materials, check availability, reserve ──
+    const reservationWarnings = [];
+    for (const item of items) {
+      const model = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
+      if (!model) continue;
+
+      const bomEntries = await ModelMaterial.findAll({ where: { modelId: model.id }, transaction: t });
+      for (const bom of bomEntries) {
+        const qty = (item.quantity || 1) * Number(bom.quantity);
+        // Lock material row to prevent concurrent reads of stale stock
+        const material = await Material.findByPk(bom.materialId, { transaction: t, lock: t.LOCK.UPDATE });
+        if (!material) continue;
+
+        // Calculate available = physical stock - already reserved by other orders
+        const alreadyReserved = await MaterialReservation.sum('quantity', {
+          where: { materialId: bom.materialId, status: 'reserved' },
+          transaction: t
+        }) || 0;
+        const available = Number(material.stock || 0) - alreadyReserved;
+
+        if (available < qty) {
+          reservationWarnings.push(`${material.name}: besoin ${qty}, disponible ${available.toFixed(1)}`);
+        }
+
+        await MaterialReservation.create({
+          orderId: order.id,
+          materialId: bom.materialId,
+          quantity: qty,
+          status: 'reserved'
+        }, { transaction: t });
+      }
+    }
+
     if (salesmen && Array.isArray(salesmen) && salesmen.length > 0) {
        for (const s of salesmen) {
           await OrderSalesman.create({
@@ -119,7 +152,9 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req
     }
 
     await t.commit();
-    res.status(201).json(order);
+    const response = order.toJSON();
+    if (reservationWarnings.length > 0) response.reservationWarnings = reservationWarnings;
+    res.status(201).json(response);
   } catch (error) {
     if (t && !t.finished) await t.rollback();
     res.status(500).json({ error: 'Server error: ' + error.message });
@@ -130,7 +165,7 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req
 router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (req, res) => {
   const t = await Order.sequelize.transaction();
   try {
-    const order = await Order.findByPk(req.params.id, { transaction: t });
+    const order = await Order.findByPk(req.params.id, { transaction: t, lock: t.LOCK.UPDATE });
     if (!order) {
       await t.rollback();
       return res.status(404).json({ error: 'Order not found.' });
@@ -235,18 +270,51 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (r
 
 // DELETE /api/orders/:id
 router.delete('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (req, res) => {
+  const t = await Order.sequelize.transaction();
   try {
-    const order = await Order.findByPk(req.params.id);
-    if (!order) return res.status(404).json({ error: 'Order not found.' });
+    const order = await Order.findByPk(req.params.id, { transaction: t, lock: t.LOCK.UPDATE });
+    if (!order) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Order not found.' });
+    }
 
     // Manually cascade delete since DB constraints might not be in sync
-    await Production.destroy({ where: { orderId: order.id } });
-    await Delivery.destroy({ where: { orderId: order.id } });
-    await Payment.destroy({ where: { orderId: order.id } });
+    // Revert physical stock for any production that already deducted materials
+    const productions = await Production.findAll({
+      where: { orderId: order.id },
+      include: [{ model: OrderItem, as: 'orderItem' }],
+      transaction: t
+    });
+    for (const prod of productions) {
+      if (prod.materialsDeducted) {
+        const qty = prod.orderItem ? prod.orderItem.quantity : 1;
+        // Revert: lock each material row and restore stock
+        const targetModel = prod.orderItem
+          ? await ProductModel.findOne({ where: { name: prod.orderItem.sofaModel }, transaction: t })
+          : (prod.productModelId ? await ProductModel.findByPk(prod.productModelId, { transaction: t }) : null);
 
-    await order.destroy();
+        if (targetModel) {
+          const bomEntries = await ModelMaterial.findAll({ where: { modelId: targetModel.id }, transaction: t });
+          for (const bom of bomEntries) {
+            const revertQty = Number(bom.quantity) * qty;
+            const mat = await Material.findByPk(bom.materialId, { transaction: t, lock: t.LOCK.UPDATE });
+            if (mat) await mat.update({ stock: Number(mat.stock) + revertQty }, { transaction: t });
+          }
+        }
+      }
+    }
+    await MaterialReservation.destroy({ where: { orderId: order.id }, transaction: t });
+    await Production.destroy({ where: { orderId: order.id }, transaction: t });
+    await Delivery.destroy({ where: { orderId: order.id }, transaction: t });
+    await Payment.destroy({ where: { orderId: order.id }, transaction: t });
+    await OrderItem.destroy({ where: { orderId: order.id }, transaction: t });
+    await OrderSalesman.destroy({ where: { orderId: order.id }, transaction: t });
+
+    await order.destroy({ transaction: t });
+    await t.commit();
     res.json({ message: 'Order deleted.' });
   } catch (error) {
+    if (t && !t.finished) await t.rollback();
     console.error('Delete Order Error:', error);
     res.status(500).json({ error: 'Server error: ' + error.message });
   }

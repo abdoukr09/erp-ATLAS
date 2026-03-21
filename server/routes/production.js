@@ -1,5 +1,5 @@
 const express = require('express');
-const { Production, Order, Customer, ProductModel, OrderItem, ProductionWorker, Employee } = require('../models');
+const { Production, Order, Customer, ProductModel, OrderItem, ProductionWorker, Employee, MaterialReservation } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
 const sequelize = require('../config/database');
 const router = express.Router();
@@ -50,7 +50,7 @@ const deductMaterials = async (orderItemId, productModelId, targetQuantity, t) =
   if (materialMap.size > 0) {
     for (const [materialId, totalRequired] of materialMap.entries()) {
       if (totalRequired > 0) {
-        const material = await Material.findByPk(materialId, { transaction: t });
+        const material = await Material.findByPk(materialId, { transaction: t, lock: t.LOCK.UPDATE });
         if (material) {
            // Allow stock to go negative. Don't block production in real-world factory workflows!
            await material.update({ stock: Number(material.stock || 0) - totalRequired }, { transaction: t });
@@ -181,7 +181,8 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
     if (req.body.productModelId === '') req.body.productModelId = null;
     const production = await Production.findByPk(req.params.id, {
       include: [{ model: OrderItem, as: 'orderItem' }],
-      transaction: t
+      transaction: t,
+      lock: t.LOCK.UPDATE
     });
     
     if (!production) {
@@ -201,6 +202,13 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
       try {
         const deducted = await deductMaterials(production.orderItemId, production.productModelId, qty, t);
         req.body.materialsDeducted = deducted;
+        // Convert reservations from 'reserved' to 'deducted' since actual stock is now reduced
+        if (deducted && production.orderItem?.orderId) {
+          await MaterialReservation.update(
+            { status: 'deducted' },
+            { where: { orderId: production.orderItem.orderId, status: 'reserved' }, transaction: t }
+          );
+        }
       } catch (err) {
         await t.rollback();
         return res.status(400).json({ error: err.message });
@@ -222,12 +230,15 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
          });
 
          if (otherTasksCount === 0) {
-            await OrderItem.update({ status: 'ready' }, { where: { id: production.orderItemId }, transaction: t });
+            const lockedItem = await OrderItem.findByPk(production.orderItemId, { transaction: t, lock: t.LOCK.UPDATE });
+            if (lockedItem) await lockedItem.update({ status: 'ready' }, { transaction: t });
             
             // Check if all other items for this Order are also ready
-            const parentOrder = await Order.findByPk(production.orderItem ? production.orderItem.orderId : (await (await OrderItem.findByPk(production.orderItemId, {transaction:t})).orderId), {
+            const itemOrderId = production.orderItem ? production.orderItem.orderId : (await OrderItem.findByPk(production.orderItemId, { transaction: t }))?.orderId;
+            const parentOrder = await Order.findByPk(itemOrderId, {
               include: [{ model: OrderItem, as: 'items' }],
-              transaction: t
+              transaction: t,
+              lock: t.LOCK.UPDATE
             });
             
             if (parentOrder && parentOrder.items.every(item => item.id === production.orderItemId || item.status === 'ready')) {
@@ -235,7 +246,7 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
             }
          }
       } else if (production.productModelId) {
-        const model = await ProductModel.findByPk(production.productModelId, { transaction: t });
+        const model = await ProductModel.findByPk(production.productModelId, { transaction: t, lock: t.LOCK.UPDATE });
         if (model) {
           await model.update({ stock: (model.stock || 0) + 1 }, { transaction: t });
         }
@@ -280,7 +291,8 @@ const revertMaterials = async (orderItemId, productModelId, targetQuantity, t) =
   if (model && model.materials) {
     for (const material of model.materials) {
       const requiredQty = material.ModelMaterial.quantity * targetQuantity;
-      await material.update({ stock: Number(material.stock) + requiredQty }, { transaction: t });
+      const lockedMat = await Material.findByPk(material.id, { transaction: t, lock: t.LOCK.UPDATE });
+      if (lockedMat) await lockedMat.update({ stock: Number(lockedMat.stock) + requiredQty }, { transaction: t });
     }
   }
 };

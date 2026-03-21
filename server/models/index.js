@@ -14,6 +14,7 @@ const EmployeePayment = require('./EmployeePayment');
 const OrderItem = require('./OrderItem');
 const OrderSalesman = require('./OrderSalesman');
 const ProductionWorker = require('./ProductionWorker');
+const MaterialReservation = require('./MaterialReservation');
 
 // Associations
 Customer.hasMany(Order, { foreignKey: 'customerId', as: 'orders' });
@@ -69,6 +70,12 @@ Production.hasMany(ProductionWorker, { foreignKey: 'productionId', as: 'workerAs
 ProductionWorker.belongsTo(Production, { foreignKey: 'productionId', as: 'production' });
 ProductionWorker.belongsTo(Employee, { foreignKey: 'workerId', as: 'worker' });
 
+// Material Reservation Associations
+Order.hasMany(MaterialReservation, { foreignKey: 'orderId', as: 'reservations', onDelete: 'CASCADE' });
+MaterialReservation.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
+Material.hasMany(MaterialReservation, { foreignKey: 'materialId', as: 'reservations' });
+MaterialReservation.belongsTo(Material, { foreignKey: 'materialId', as: 'material' });
+
 module.exports = {
   User,
   Customer,
@@ -85,5 +92,6 @@ module.exports = {
   EmployeePayment,
   OrderItem,
   OrderSalesman,
-  ProductionWorker
+  ProductionWorker,
+  MaterialReservation
 };
