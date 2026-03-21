@@ -43,6 +43,11 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req
   const t = await sequelize.transaction();
   try {
     const { orderId, amount, method, paymentDate, notes, type } = req.body;
+    if (type === 'final') {
+      await t.rollback();
+      return res.status(400).json({ error: "Le type 'final' est réservé au système automatique lors de la livraison. Utilisez 'advance' ou 'other'." });
+    }
+
     if (!orderId || !amount) {
       await t.rollback();
       return res.status(400).json({ error: 'Order ID and amount are required.' });
@@ -81,6 +86,11 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (r
     if (!payment) {
       await t.rollback();
       return res.status(404).json({ error: 'Payment not found.' });
+    }
+
+    if (req.body.type === 'final') {
+      await t.rollback();
+      return res.status(400).json({ error: "Modification en type 'final' interdite. Utilisez 'advance' ou 'other'." });
     }
 
     await payment.update(req.body, { transaction: t });
