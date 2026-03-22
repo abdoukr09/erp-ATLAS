@@ -63,11 +63,11 @@ app.use(helmet({
     },
   },
   crossOriginEmbedderPolicy: false, 
-  hsts: {
+  hsts: process.env.NODE_ENV === 'production' ? {
     maxAge: 31536000, // 1 year strict transport security (force HTTPS)
     includeSubDomains: true,
     preload: true
-  }
+  } : false
 }));
 
 // ─── Core Middleware ──────────────────────────────────────────────────────────
