@@ -10,32 +10,37 @@ const standardResponse = (req, res) => {
   res.status(429).json({ error: 'Too many requests, please try again later.' });
 };
 
-// Simple IP-only limiter — no custom keyGenerator needed (avoids IPv6 warning)
+// 1. Global API Requests Limiter (1000 per 15 minutes)
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: standardResponse,
 });
 
-// Strict limiter for /api/auth/login (5 per minute)
-const loginLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
+// 2. Login / Auth Limiter (50 attempts per minute)
+const authLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 50,
+  message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: standardResponse,
 });
 
-// Moderate limiter for write routes — orders, payments (30 per minute)
-const writeLimiter = rateLimit({
-  windowMs: 60 * 1000,
+// 3. Orders/Payments Limiter (30 requests per minute)
+const strictLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
   max: 30,
+  message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: standardResponse,
 });
 
-module.exports = { generalLimiter, loginLimiter, writeLimiter };
-
+module.exports = {
+  generalLimiter,
+  authLimiter,
+  strictLimiter,
+  loginLimiter: authLimiter,
+  writeLimiter: strictLimiter,
+};

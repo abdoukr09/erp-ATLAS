@@ -11,7 +11,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const sequelize = require('./config/database');
-const { generalLimiter } = require('./middleware/rateLimiter');
+const { generalLimiter, authLimiter, strictLimiter } = require('./middleware/rateLimiter');
 const errorHandler = require('./middleware/errorHandler');
 const sanitizeBody = require('./middleware/sanitize');
 const { fileLogger, consoleLogger } = require('./middleware/logger');
@@ -92,6 +92,10 @@ app.use('/api', (req, res, next) => {
 // ─── TASK 1: Global Rate Limiter — 100 requests per 15 minutes per IP/user ───
 app.use('/api/', generalLimiter);
 
+// ─── TASK 1: Extra strict limiter for slow/heavy endpoints (30 per min) ──
+app.use('/api/orders', strictLimiter);
+app.use('/api/payments', strictLimiter);
+app.use('/api/production', strictLimiter);
 // ─── Routes ──────────────────────────────────────────────────────────────────
 // Note: individual sensitive routes (/login, POST /orders, POST /payments)
 // have additional stricter rate limiters applied directly in their route files.
