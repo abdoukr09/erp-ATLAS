@@ -53,13 +53,14 @@ const schemas = {
     deliveryAddress: safeStr(200).optional().allow('', null),
     notes: safeStr(500).optional().allow('', null),
     orderDate: Joi.date().iso().optional().allow('', null),
-    discountPercentage: Joi.number().min(0).max(100).optional(),
-    totalPrice: Joi.number().min(0).optional(),
-    advancePayment: Joi.number().min(0).optional(),
+    discountPercentage: Joi.number().min(0).max(100).empty('').optional(),
+    totalPrice: Joi.number().min(0).empty('').optional(),
+    advancePayment: Joi.number().min(0).empty('').optional(),
     paymentMethod: safeStr(20).optional().allow('', null),
-    useStock: Joi.boolean().optional(),
-    salesmanId: Joi.number().integer().positive().optional(),
-  }),
+    useStock: Joi.boolean().empty('').optional(),
+    salesmanId: Joi.number().integer().positive().empty('').optional(),
+    status: Joi.string().valid('pending', 'in_production', 'ready', 'delivered', 'cancelled').optional(),
+  }).options({ allowUnknown: true }),
 
   // POST /api/payments
   createPayment: Joi.object({
