@@ -32,14 +32,45 @@ router.post('/login', loginLimiter, validate(schemas.login), async (req, res, ne
     const { username, password } = req.body;
 
     const user = await User.findOne({ where: { username } });
-    if (!user || !user.active) {
+
+    // Unknown user — don't reveal whether username exists
+    if (!user) {
       return res.status(401).json({ error: 'Invalid credentials.' });
+    }
+
+    // ── Brute-force lockout check ────────────────────────────────────────
+    const MAX_ATTEMPTS  = 10;
+    const LOCK_MINUTES  = 15;
+
+    if (user.lockedUntil && new Date() < new Date(user.lockedUntil)) {
+      const minutesLeft = Math.ceil((new Date(user.lockedUntil) - new Date()) / 60000);
+      return res.status(429).json({
+        error: `Account temporarily locked. Try again in ${minutesLeft} minute(s).`,
+      });
+    }
+
+    if (!user.active) {
+      return res.status(401).json({ error: 'Account is deactivated.' });
     }
 
     const isValid = await user.validatePassword(password);
     if (!isValid) {
+      // Increment failure counter
+      const newAttempts = (user.failedLoginAttempts || 0) + 1;
+      const updates = { failedLoginAttempts: newAttempts };
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        const lockedUntil = new Date();
+        lockedUntil.setMinutes(lockedUntil.getMinutes() + LOCK_MINUTES);
+        updates.lockedUntil = lockedUntil;
+      }
+
+      await user.update(updates);
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
+
+    // ── SUCCESS: reset lockout counters ───────────────────────────────────
+    await user.update({ failedLoginAttempts: 0, lockedUntil: null });
 
     // Issue short-lived access token
     const accessToken = signAccessToken(user);

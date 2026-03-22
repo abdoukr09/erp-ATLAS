@@ -34,6 +34,17 @@ const User = sequelize.define('User', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
+  // ── Brute-force protection ──────────────────────────────────────────────
+  failedLoginAttempts: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    allowNull: false,
+  },
+  lockedUntil: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    defaultValue: null,
+  },
 }, {
   tableName: 'users',
   timestamps: true,
