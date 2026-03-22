@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 const menuItems = [
-  { section: 'Principal', icon: LayoutDashboard, label: 'Tableau de bord', path: '/', roles: ['admin', 'gerant', 'production', 'sales', 'delivery'] },
+  { section: 'Principal', icon: LayoutDashboard, label: 'Tableau de bord', path: '/', roles: ['admin', 'gerant', 'sales'] },
   { section: 'Commerce', icon: BookOpen, label: 'Catalogue', path: '/catalog', roles: ['admin', 'sales', 'gerant'] },
   { section: 'Commerce', icon: Users, label: 'Clients', path: '/customers', roles: ['admin', 'sales', 'gerant'] },
   { section: 'Commerce', icon: ShoppingCart, label: 'Commandes', path: '/orders', roles: ['admin', 'sales', 'gerant'] },
