@@ -40,9 +40,9 @@ const schemas = {
     customerId: Joi.number().integer().positive().required(),
     items: Joi.array().items(Joi.object({
       sofaModel: safeStr(100).required(),
-      quantity: Joi.number().integer().min(1).max(999).required(),
-      unitPrice: Joi.number().min(0).required(),
-      discountPercentage: Joi.number().min(0).max(100).default(0),
+      quantity: Joi.number().integer().min(1).max(999).empty('').default(1),
+      unitPrice: Joi.number().min(0).empty('').default(0),
+      discountPercentage: Joi.number().min(0).max(100).empty('').default(0),
       fabric: safeStr(100).optional().allow('', null),
       color: safeStr(50).optional().allow('', null),
     })).min(1).required(),
