@@ -42,6 +42,15 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Trigger validation on form submission
+    const validationError = validatePassword(password);
+    if (validationError) {
+      setPwdError(validationError);
+      setIsPwdTouched(true);
+      return; // Do not allow the form to submit
+    }
+
     setError('');
     setLoading(true);
     try {
@@ -93,7 +102,6 @@ export default function Login() {
                 outline: 'none',
                 transition: 'border-color 0.3s'
               }}
-              required
             />
             {isPwdTouched && pwdError && (
               <p style={{ color: '#ff4d4f', fontSize: '13px', marginTop: '5px' }}>
@@ -104,11 +112,7 @@ export default function Login() {
           <button 
             type="submit" 
             className="btn btn-primary" 
-            disabled={loading || !!pwdError || password.length === 0}
-            style={{
-              cursor: (pwdError || password.length === 0) ? 'not-allowed' : 'pointer',
-              opacity: (pwdError || password.length === 0) ? 0.6 : 1
-            }}
+            disabled={loading}
           >
             {loading ? 'Connexion en cours...' : 'Se Connecter'}
           </button>
