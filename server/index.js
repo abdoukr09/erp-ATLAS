@@ -21,26 +21,49 @@ require('./models');
 
 const app = express();
 
-// ─── TASK 4: Security Headers (helmet) ───────────────────────────────────────
-// Safe defaults that don't break the React Vite frontend.
+// ─── TASK 7: Advanced CORS Hardening ──────────────────────────────────────────
+// Only allow requests from the exact frontend origin. Blocks CSRF from hacker.com
+const allowedOrigins = [
+  'http://localhost:5173', 
+  'http://localhost:5001'
+];
+if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // Crucial for HTTP-only refresh token cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+}));
+
+// ─── TASK 4 & 7: Security Headers (Helmet + HSTS) ───────────────────────────
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"], // needed by React inline styles
+      styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:'],
-      connectSrc: ["'self'", 'http://localhost:5001', 'http://localhost:5173'],
+      connectSrc: ["'self'", ...allowedOrigins],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
     },
   },
-  crossOriginEmbedderPolicy: false, // Required to avoid breaking React fetch calls
+  crossOriginEmbedderPolicy: false, 
+  hsts: {
+    maxAge: 31536000, // 1 year strict transport security (force HTTPS)
+    includeSubDomains: true,
+    preload: true
+  }
 }));
 
 // ─── Core Middleware ──────────────────────────────────────────────────────────
-app.use(cors());
 app.use(cookieParser());                             // Parse HTTP-only cookies (refresh tokens)
 app.use(fileLogger);                                 // LEVEL 6: Audit trail (File)
 app.use(consoleLogger);                              // LEVEL 6: Audit trail (Terminal)
