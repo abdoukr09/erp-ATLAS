@@ -14,6 +14,7 @@ const sequelize = require('./config/database');
 const { generalLimiter } = require('./middleware/rateLimiter');
 const errorHandler = require('./middleware/errorHandler');
 const sanitizeBody = require('./middleware/sanitize');
+const { fileLogger, consoleLogger } = require('./middleware/logger');
 
 // Import models (triggers associations)
 require('./models');
@@ -41,6 +42,8 @@ app.use(helmet({
 // ─── Core Middleware ──────────────────────────────────────────────────────────
 app.use(cors());
 app.use(cookieParser());                             // Parse HTTP-only cookies (refresh tokens)
+app.use(fileLogger);                                 // LEVEL 6: Audit trail (File)
+app.use(consoleLogger);                              // LEVEL 6: Audit trail (Terminal)
 app.use(express.json({ limit: '1mb' }));         // Prevent large payload attacks
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(sanitizeBody);                               // LEVEL 5: Strip $-prefix operator injection keys
