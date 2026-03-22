@@ -65,18 +65,28 @@ export default function Orders() {
         return;
       }
 
-      let subtotal = 0;
-      if (form.items && form.items.length > 0) {
-        subtotal = form.items.reduce((acc, item) => acc + ((parseInt(item.quantity) || 1) * (parseFloat(item.unitPrice) || 0)), 0);
-      }
+      const baseTotal = form.items.reduce((acc, item) => {
+        const qty = parseInt(item.quantity) || 1;
+        const price = parseFloat(item.unitPrice) || 0;
+        const itemDiscount = parseFloat(item.discountPercentage) || 0;
+        return acc + (qty * price * (1 - itemDiscount / 100));
+      }, 0);
       
-      let finalTotal = Math.round(subtotal * (1 - (parseFloat(form.discountPercentage) || 0) / 100));
+      let finalTotal = Math.round(baseTotal * (1 - (parseFloat(form.discountPercentage) || 0) / 100));
+      let finalDiscountPct = parseFloat(form.discountPercentage) || 0;
+
       if (customTotal !== '') {
         const parsedCustom = parseFloat(customTotal);
-        if (!isNaN(parsedCustom)) finalTotal = parsedCustom;
+        if (!isNaN(parsedCustom)) {
+          finalTotal = parsedCustom;
+          if (baseTotal > 0) {
+            finalDiscountPct = ((baseTotal - finalTotal) / baseTotal) * 100;
+            if (finalDiscountPct < 0) finalDiscountPct = 0;
+          }
+        }
       }
 
-      const payload = { ...form, totalPrice: finalTotal };
+      const payload = { ...form, totalPrice: finalTotal, discountPercentage: finalDiscountPct };
 
       if (editing) {
         await api.put(`/orders/${editing.id}`, payload);
@@ -92,6 +102,37 @@ export default function Orders() {
         : err.response?.data?.error || 'Transaction Error';
       alert(`Erreur: ${errMsg}`); 
     }
+  };
+
+  const calculatePricing = () => {
+    const baseTotal = form.items.reduce((acc, item) => {
+      const qty = parseInt(item.quantity) || 1;
+      const price = parseFloat(item.unitPrice) || 0;
+      const itemDiscount = parseFloat(item.discountPercentage) || 0;
+      return acc + (qty * price * (1 - itemDiscount / 100));
+    }, 0);
+
+    let finalPrice = baseTotal;
+    let globalDiscountPct = parseFloat(form.discountPercentage) || 0;
+    
+    if (customTotal !== '') {
+      finalPrice = parseFloat(customTotal) || 0;
+      if (baseTotal > 0) {
+        globalDiscountPct = ((baseTotal - finalPrice) / baseTotal) * 100;
+        if (globalDiscountPct < 0) globalDiscountPct = 0;
+      }
+    } else {
+      finalPrice = baseTotal * (1 - globalDiscountPct / 100);
+    }
+
+    const discountAmount = baseTotal - finalPrice;
+
+    return {
+      baseTotal: Math.round(baseTotal),
+      finalPrice: Math.round(finalPrice),
+      discountAmount: Math.round(discountAmount),
+      globalDiscountPct: globalDiscountPct.toFixed(2)
+    };
   };
 
   const handleEdit = (order) => {
@@ -348,34 +389,98 @@ export default function Orders() {
           
  <div></div> 
           
-          <div className="form-row">
-            <div className="form-group">
-              <label>Total calculé (DA)</label>
-              <input 
-                className="form-control" 
-                type="number" 
-                placeholder="Montant total final"
-                value={customTotal !== '' ? customTotal : Math.round(form.items.reduce((acc, i) => acc + ((parseInt(i.quantity)||1) * (parseFloat(i.unitPrice)||0) * (1 - (parseFloat(i.discountPercentage)||0) / 100)), 0))}
-                onChange={e => {
-                  const rawValue = e.target.value;
-                  setCustomTotal(rawValue);
+          {/* Dashboard-style Pricing Summary */}
+          {(() => {
+            const pricing = calculatePricing();
+            return (
+              <div className="form-section" style={{marginTop: '20px', background: 'var(--bg-secondary)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'}}>
+                <h3 style={{fontSize: '1.05em', marginBottom: '15px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', color: 'var(--text-primary)'}}>Résumé & Remise Globale</h3>
+                
+                <div style={{display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start'}}>
                   
-                  // Auto-recalculate the global discount percentage if they manually override the price
-                  let subtotalNoDiscount = form.items.reduce((acc, i) => acc + ((parseInt(i.quantity)||1) * (parseFloat(i.unitPrice)||0)), 0);
-                  if (subtotalNoDiscount > 0 && rawValue !== '') {
-                    const parsedVal = parseFloat(rawValue);
-                    if (!isNaN(parsedVal)) {
-                      let calcDiscount = ((subtotalNoDiscount - parsedVal) / subtotalNoDiscount) * 100;
-                      // Don't set negative discounts if they raised the price
-                      if (calcDiscount >= 0 && calcDiscount <= 100) {
-                        setForm(prev => ({ ...prev, discountPercentage: calcDiscount.toFixed(2) }));
-                      }
-                    }
-                  }
-                }}
-              />
-            </div>
-          </div>
+                  <div style={{flex: '1 1 150px', display: 'flex', flexDirection: 'column', gap: '5px'}}>
+                    <label style={{color: 'var(--text-muted)', fontSize: '0.85em', fontWeight: 600, textTransform: 'uppercase'}}>Total Brut</label>
+                    <div style={{fontSize: '1.3em', fontWeight: 600, color: 'var(--text-primary)'}}>{pricing.baseTotal.toLocaleString()} DA</div>
+                  </div>
+
+                  <div className="form-group" style={{flex: '2 1 250px', margin: 0}}>
+                    <div style={{display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px'}}>
+                      <label style={{margin:0, fontSize: '0.85em', fontWeight: 600}}>Mode de Clôture :</label>
+                      <div style={{display: 'flex', background: 'var(--bg-primary)', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-color)'}}>
+                        <button 
+                          type="button"
+                          style={{padding: '4px 12px', border: 'none', background: customTotal === '' ? 'var(--accent-blue)' : 'transparent', color: customTotal === '' ? '#fff' : 'var(--text-primary)', cursor: 'pointer', fontSize: '0.85em', transition: 'all 0.2s', fontWeight: customTotal === '' ? 600 : 400}}
+                          onClick={() => setCustomTotal('')}
+                        >
+                          % Remise
+                        </button>
+                        <button 
+                          type="button"
+                          style={{padding: '4px 12px', border: 'none', background: customTotal !== '' ? 'var(--accent-blue)' : 'transparent', color: customTotal !== '' ? '#fff' : 'var(--text-primary)', cursor: 'pointer', fontSize: '0.85em', transition: 'all 0.2s', fontWeight: customTotal !== '' ? 600 : 400}}
+                          onClick={() => setCustomTotal(pricing.finalPrice.toString())}
+                        >
+                          Prix Fixe
+                        </button>
+                      </div>
+                    </div>
+
+                    {customTotal === '' ? (
+                      <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                        <input 
+                          className="form-control" 
+                          type="number" 
+                          min="0" max="100" step="0.1" 
+                          placeholder="Ex: 10"
+                          style={{maxWidth: '120px'}}
+                          value={form.discountPercentage} 
+                          onChange={e => {
+                            let val = parseFloat(e.target.value);
+                            if (val > 100) val = 100;
+                            if (val < 0) val = 0;
+                            setForm({...form, discountPercentage: isNaN(val) ? '' : val});
+                          }} 
+                        />
+                        <span style={{fontSize: '0.9em', color: 'var(--text-muted)'}}>% de remise</span>
+                      </div>
+                    ) : (
+                      <div style={{display: 'flex', flexDirection: 'column', gap: '5px'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                          <input 
+                            className="form-control" 
+                            type="number" 
+                            min="0"
+                            placeholder="Montant négocié"
+                            style={{borderColor: 'var(--accent-blue)', maxWidth: '150px'}}
+                            value={customTotal} 
+                            onChange={e => {
+                              let val = parseFloat(e.target.value);
+                              if (val < 0) val = 0;
+                              setCustomTotal(isNaN(val) ? '' : val);
+                            }} 
+                          />
+                          <span style={{fontSize: '0.9em', color: 'var(--text-muted)'}}>DA (Forcé)</span>
+                        </div>
+                        <div style={{fontSize: '0.85em', color: 'var(--accent-blue)', fontWeight: 500}}>
+                          Équivaut à une remise de {pricing.globalDiscountPct}%
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{flex: '1 1 200px', textAlign: 'right', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', borderLeft: '1px solid var(--border-color)', paddingLeft: '20px'}}>
+                    {pricing.discountAmount > 0 && (
+                      <div style={{color: 'var(--accent-green)', fontSize: '0.9em', marginBottom: '5px', fontWeight: 600}}>
+                        Économie: -{pricing.discountAmount.toLocaleString()} DA
+                      </div>
+                    )}
+                    <label style={{color: 'var(--text-muted)', fontSize: '0.85em', fontWeight: 600, textTransform: 'uppercase'}}>Net à Payer</label>
+                    <div style={{fontSize: '1.6em', fontWeight: 700, color: 'var(--accent-primary)', lineHeight: 1}}>{pricing.finalPrice.toLocaleString()} DA</div>
+                  </div>
+
+                </div>
+              </div>
+            );
+          })()}
           <div className="form-row">
             <div className="form-group">
               <label>Avance (DA)</label>
