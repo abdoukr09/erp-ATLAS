@@ -9,6 +9,29 @@ export default function UsersPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'sales', email: '' });
+  
+  // Password validation state
+  const [pwdError, setPwdError] = useState('');
+  const [isPwdTouched, setIsPwdTouched] = useState(false);
+
+  const WEAK_PASSWORDS = ['123', '123456', 'password', 'qwerty', 'azerty', 'admin'];
+
+  const validatePassword = (value, isEditing) => {
+    if (isEditing && !value) return ''; // Allowed to leave empty when editing to keep old password
+    if (WEAK_PASSWORDS.includes(value.toLowerCase())) {
+      return "Mot de passe trop faible ! (ex: 123, password interdit)";
+    }
+    if (value.length < 6 || value.length > 8) return "Doit faire entre 6 et 8 caractères.";
+    if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) return "Doit contenir au moins une lettre et un chiffre.";
+    return '';
+  };
+
+  const handlePasswordChange = (e) => {
+    const val = e.target.value;
+    setForm({...form, password: val});
+    setIsPwdTouched(true);
+    setPwdError(validatePassword(val, !!editing));
+  };
 
   useEffect(() => { fetchUsers(); }, []);
 
@@ -17,11 +40,20 @@ export default function UsersPage() {
   };
 
   const handleSubmit = async () => {
+    // Trigger validation
+    const vErr = validatePassword(form.password, !!editing);
+    if (vErr) {
+      setPwdError(vErr);
+      setIsPwdTouched(true);
+      return;
+    }
+
     try {
       const payload = { ...form };
       if (editing && !form.password) delete payload.password;
       if (editing) await api.put(`/users/${editing.id}`, payload);
       else await api.post('/users', payload);
+      
       setShowModal(false); setEditing(null);
       setForm({ username: '', password: '', fullName: '', role: 'sales', email: '' });
       fetchUsers();
@@ -31,6 +63,8 @@ export default function UsersPage() {
   const handleEdit = (u) => {
     setEditing(u);
     setForm({ username: u.username, password: '', fullName: u.fullName, role: u.role, email: u.email || '' });
+    setIsPwdTouched(false);
+    setPwdError('');
     setShowModal(true);
   };
 
@@ -55,7 +89,7 @@ export default function UsersPage() {
               <Search className="search-icon" />
               <input className="search-input" placeholder="Rechercher des utilisateurs..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
-            <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ username: '', password: '', fullName: '', role: 'sales', email: '' }); setShowModal(true); }}>
+            <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ username: '', password: '', fullName: '', role: 'sales', email: '' }); setIsPwdTouched(false); setPwdError(''); setShowModal(true); }}>
               <Plus size={16} /> Ajouter Utilisateur
             </button>
           </div>
@@ -94,7 +128,23 @@ export default function UsersPage() {
             </div>
             <div className="form-group">
               <label>{editing ? 'Nouveau mot de passe' : 'Mot de passe *'}</label>
-              <input className="form-control" type="password" placeholder={editing ? 'Laisser vide pour conserver' : 'Mot de passe'} value={form.password} onChange={e => setForm({...form, password: e.target.value})} required={!editing} />
+              <input 
+                className="form-control" 
+                type="password" 
+                placeholder={editing ? 'Laisser vide pour conserver' : 'Mot de passe'} 
+                value={form.password} 
+                onChange={handlePasswordChange} 
+                style={{
+                  borderColor: (!isPwdTouched || (editing && !form.password)) ? '' : pwdError ? '#ff4d4f' : '#52c41a',
+                  outline: 'none'
+                }}
+                required={!editing} 
+              />
+              {isPwdTouched && pwdError && (
+                <p style={{ color: '#ff4d4f', fontSize: '13px', margin: '5px 0 0 0' }}>
+                  {pwdError}
+                </p>
+              )}
             </div>
           </div>
           <div className="form-group">
