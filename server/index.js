@@ -13,6 +13,7 @@ const cookieParser = require('cookie-parser');
 const sequelize = require('./config/database');
 const { generalLimiter } = require('./middleware/rateLimiter');
 const errorHandler = require('./middleware/errorHandler');
+const sanitizeBody = require('./middleware/sanitize');
 
 // Import models (triggers associations)
 require('./models');
@@ -42,6 +43,7 @@ app.use(cors());
 app.use(cookieParser());                             // Parse HTTP-only cookies (refresh tokens)
 app.use(express.json({ limit: '1mb' }));         // Prevent large payload attacks
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(sanitizeBody);                               // LEVEL 5: Strip $-prefix operator injection keys
 
 // ─── TASK 1: Global Rate Limiter — 100 requests per 15 minutes per IP/user ───
 app.use('/api/', generalLimiter);
