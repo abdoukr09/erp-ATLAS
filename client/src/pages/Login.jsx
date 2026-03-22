@@ -8,8 +8,37 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Password validation state
+  const [pwdError, setPwdError] = useState('');
+  const [isPwdTouched, setIsPwdTouched] = useState(false);
+
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const WEAK_PASSWORDS = ['123', '123456', 'password', 'qwerty', 'azerty', 'admin'];
+
+  const validatePassword = (value) => {
+    if (WEAK_PASSWORDS.includes(value.toLowerCase())) {
+      return "Mot de passe trop faible ! Veuillez ne pas utiliser de mots de passe courants.";
+    }
+    if (value.length < 6 || value.length > 8) {
+      return "Mot de passe trop faible ! Veuillez choisir un mot de passe de 6 à 8 caractères, contenant des lettres et des chiffres.";
+    }
+    const hasLetter = /[a-zA-Z]/.test(value);
+    const hasNumber = /[0-9]/.test(value);
+    if (!hasLetter || !hasNumber) {
+      return "Mot de passe trop faible ! Veuillez choisir un mot de passe de 6 à 8 caractères, contenant des lettres et des chiffres.";
+    }
+    return '';
+  };
+
+  const handlePasswordChange = (e) => {
+    const val = e.target.value;
+    setPassword(val);
+    setIsPwdTouched(true);
+    setPwdError(validatePassword(val));
+  }; // END NEW VALIDATION LOGIC
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -58,11 +87,29 @@ export default function Login() {
               className="form-control"
               placeholder="Entrez votre mot de passe"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
+              style={{
+                borderColor: !isPwdTouched ? '' : pwdError ? '#ff4d4f' : '#52c41a',
+                outline: 'none',
+                transition: 'border-color 0.3s'
+              }}
               required
             />
+            {isPwdTouched && pwdError && (
+              <p style={{ color: '#ff4d4f', fontSize: '13px', marginTop: '5px' }}>
+                {pwdError}
+              </p>
+            )}
           </div>
-          <button type="submit" className="btn btn-primary" disabled={loading}>
+          <button 
+            type="submit" 
+            className="btn btn-primary" 
+            disabled={loading || !!pwdError || password.length === 0}
+            style={{
+              cursor: (pwdError || password.length === 0) ? 'not-allowed' : 'pointer',
+              opacity: (pwdError || password.length === 0) ? 0.6 : 1
+            }}
+          >
             {loading ? 'Connexion en cours...' : 'Se Connecter'}
           </button>
         </form>
