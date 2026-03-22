@@ -2,6 +2,8 @@ const express = require('express');
 const { Payment, Order, Customer, OrderItem } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
 const sequelize = require('../config/database');
+const { writeLimiter } = require('../middleware/rateLimiter');
+const { validate, schemas } = require('../middleware/validate');
 const router = express.Router();
 
 // GET /api/payments
@@ -38,8 +40,8 @@ const syncOrderPayment = async (orderId, t) => {
   await order.update({ remainingPayment: remaining, paymentStatus: status }, { transaction: t });
 };
 
-// POST /api/payments
-router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req, res) => {
+// POST /api/payments — Rate limited + validated
+router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), writeLimiter, validate(schemas.createPayment), async (req, res) => {
   const t = await sequelize.transaction();
   try {
     const { orderId, amount, method, paymentDate, notes, type } = req.body;

@@ -2,10 +2,12 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const { authenticate } = require('../middleware/auth');
+const { loginLimiter } = require('../middleware/rateLimiter');
+const { validate, schemas } = require('../middleware/validate');
 const router = express.Router();
 
-// POST /api/auth/login
-router.post('/login', async (req, res) => {
+// POST /api/auth/login — Rate limited (5/min) + validated
+router.post('/login', loginLimiter, validate(schemas.login), async (req, res) => {
   try {
     const { username, password } = req.body;
     

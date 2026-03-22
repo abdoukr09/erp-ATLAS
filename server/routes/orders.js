@@ -1,6 +1,8 @@
 const express = require('express');
 const { Order, Customer, Payment, Production, Delivery, OrderItem, OrderSalesman, Employee, ProductModel, Material, ModelMaterial, MaterialReservation } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
+const { writeLimiter } = require('../middleware/rateLimiter');
+const { validate, schemas } = require('../middleware/validate');
 const router = express.Router();
 
 // GET /api/orders
@@ -39,8 +41,8 @@ router.get('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (r
   }
 });
 
-// POST /api/orders
-router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req, res) => {
+// POST /api/orders — Rate limited + validated
+router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), writeLimiter, validate(schemas.createOrder), async (req, res) => {
   const t = await Order.sequelize.transaction();
   try {
     const { 
