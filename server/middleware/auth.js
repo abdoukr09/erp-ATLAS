@@ -24,13 +24,36 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-// Check role
-const authorize = (...roles) => {
+// ─── LEVEL 8: Hierarchical Role-Based Access Control (RBAC) ────────────────
+// Defines which lower-level permissions are automatically granted to upper roles.
+// Prevents bugs where an 'admin' is locked out of a basic 'sales' route
+// just because 'admin' wasn't explicitly added to the route's array.
+const roleHierarchy = {
+  admin:      ['admin', 'gerant', 'sales', 'production', 'delivery'], // God mode
+  gerant:     ['gerant', 'sales', 'production', 'delivery'],          // Manager mode
+  sales:      ['sales'],
+  production: ['production'],
+  delivery:   ['delivery'],
+};
+
+const authorize = (...requiredRoles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
+    const userRole = req.user.role;
+    
+    // 1. Direct match
+    if (requiredRoles.includes(userRole)) {
+      return next();
     }
-    next();
+    
+    // 2. Hierarchical match
+    const userGrants = roleHierarchy[userRole] || [];
+    const hasPermission = requiredRoles.some(role => userGrants.includes(role));
+    
+    if (hasPermission) {
+      return next();
+    }
+
+    return res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
   };
 };
 
