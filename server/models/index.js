@@ -19,8 +19,8 @@ const RefreshToken = require('./RefreshToken');
 const AuditLog = require('./AuditLog');
 
 // Associations
-Customer.hasMany(Order, { foreignKey: 'customerId', as: 'orders' });
-Order.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer' });
+Customer.hasMany(Order, { foreignKey: 'customerId', as: 'orders', onDelete: 'SET NULL' });
+Order.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer', onDelete: 'SET NULL' });
 
 Order.hasMany(Production, { foreignKey: 'orderId', as: 'productions', onDelete: 'CASCADE' });
 Production.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
@@ -54,23 +54,25 @@ PackItem.belongsTo(ProductModel, { foreignKey: 'productId', as: 'product' });
 ProductModel.hasMany(Production, { foreignKey: 'productModelId', as: 'stockProductions' });
 Production.belongsTo(ProductModel, { foreignKey: 'productModelId', as: 'productModel' });
 
-Employee.hasMany(Order, { foreignKey: 'salesmanId', as: 'sales' });
-Order.belongsTo(Employee, { foreignKey: 'salesmanId', as: 'salesman' });
+Employee.hasMany(Order, { foreignKey: 'salesmanId', as: 'sales', onDelete: 'SET NULL' });
+Order.belongsTo(Employee, { foreignKey: 'salesmanId', as: 'salesman', onDelete: 'SET NULL' });
 
 // Order Item & Salesman Associations
 Order.hasMany(OrderItem, { foreignKey: 'orderId', as: 'items', onDelete: 'CASCADE' });
 OrderItem.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
 
 Order.hasMany(OrderSalesman, { foreignKey: 'orderId', as: 'salesmen', onDelete: 'CASCADE' });
-OrderSalesman.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
-OrderSalesman.belongsTo(Employee, { foreignKey: 'salesmanId', as: 'salesman' });
+OrderSalesman.belongsTo(Order, { foreignKey: 'orderId', as: 'order', onDelete: 'CASCADE' });
+OrderSalesman.belongsTo(Employee, { foreignKey: 'salesmanId', as: 'salesman', onDelete: 'CASCADE' });
+Employee.hasMany(OrderSalesman, { foreignKey: 'salesmanId', as: 'orderInvolvements', onDelete: 'CASCADE' });
 
 OrderItem.hasMany(Production, { foreignKey: 'orderItemId', as: 'productions', onDelete: 'CASCADE' });
 Production.belongsTo(OrderItem, { foreignKey: 'orderItemId', as: 'orderItem' });
 
 Production.hasMany(ProductionWorker, { foreignKey: 'productionId', as: 'workerAssignments', onDelete: 'CASCADE' });
-ProductionWorker.belongsTo(Production, { foreignKey: 'productionId', as: 'production' });
-ProductionWorker.belongsTo(Employee, { foreignKey: 'workerId', as: 'worker' });
+ProductionWorker.belongsTo(Production, { foreignKey: 'productionId', as: 'production', onDelete: 'CASCADE' });
+ProductionWorker.belongsTo(Employee, { foreignKey: 'workerId', as: 'worker', onDelete: 'CASCADE' });
+Employee.hasMany(ProductionWorker, { foreignKey: 'workerId', as: 'productionInvolvements', onDelete: 'CASCADE' });
 
 // Material Reservation Associations
 Order.hasMany(MaterialReservation, { foreignKey: 'orderId', as: 'reservations', onDelete: 'CASCADE' });
