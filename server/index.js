@@ -21,6 +21,12 @@ require('./models');
 
 const app = express();
 
+// ─── TASK 9: Infrastructure Layer Security (Reverse Proxy Trust) ──────────────
+// Trust the first proxy (e.g. Nginx, Apache). Crucial for Rate Limiting.
+// Without this, req.ip is always 127.0.0.1, meaning if 1 user is rate limited,
+// ALL users are blocked.
+app.set('trust proxy', 1);
+
 // ─── TASK 7: Advanced CORS Hardening ──────────────────────────────────────────
 // Only allow requests from the exact frontend origin. Blocks CSRF from hacker.com
 const allowedOrigins = [
@@ -70,6 +76,17 @@ app.use(consoleLogger);                              // LEVEL 6: Audit trail (Te
 app.use(express.json({ limit: '1mb' }));         // Prevent large payload attacks
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(sanitizeBody);                               // LEVEL 5: Strip $-prefix operator injection keys
+
+// ─── TASK 9: Cache-Control Hardening (Data Leakage Prevention) ────────────────
+// Prevent browsers from saving sensitive ERP API responses (prices, salaries)
+// to the user's local hard drive or shared proxy caches.
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  next();
+});
 
 // ─── TASK 1: Global Rate Limiter — 100 requests per 15 minutes per IP/user ───
 app.use('/api/', generalLimiter);
