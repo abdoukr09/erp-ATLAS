@@ -164,7 +164,7 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), writeLimit
 });
 
 // PUT /api/orders/:id
-router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async (req, res) => {
+router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), validate(schemas.updateOrder), async (req, res) => {
   const t = await Order.sequelize.transaction();
   try {
     const order = await Order.findByPk(req.params.id, { transaction: t, lock: t.LOCK.UPDATE });

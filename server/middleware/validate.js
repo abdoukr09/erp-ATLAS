@@ -62,6 +62,42 @@ const schemas = {
     status: Joi.string().valid('pending', 'in_production', 'ready', 'delivered', 'cancelled').optional(),
   }).options({ allowUnknown: true }),
 
+  // PUT /api/orders/:id
+  updateOrder: Joi.object({
+    customerId: Joi.number().integer().positive().optional().allow(null),
+    items: Joi.array().items(Joi.object({
+      id: Joi.number().integer().positive().optional(),
+      sofaModel: safeStr(100).required(),
+      quantity: Joi.number().integer().min(1).max(999).empty('').default(1),
+      unitPrice: Joi.number().min(0).empty('').default(0),
+      discountPercentage: Joi.number().min(0).max(100).empty('').default(0),
+      fabric: safeStr(100).optional().allow('', null),
+      color: safeStr(50).optional().allow('', null),
+      status: Joi.string().valid('pending', 'in_production', 'ready', 'delivered', 'cancelled').optional()
+    })).optional(),
+    salesmen: Joi.array().items(Joi.object({
+      id: Joi.number().integer().positive().optional(),
+      salesmanId: Joi.number().integer().positive().required(),
+      splitPercentage: Joi.number().min(0).max(100).optional(),
+    })).optional(),
+    sofaModel: safeStr(100).optional().allow('', null),
+    fabric: safeStr(50).optional().allow('', null),
+    color: safeStr(30).optional().allow('', null),
+    quantity: Joi.number().integer().min(1).max(999).empty('').optional(),
+    unitPrice: Joi.number().min(0).empty('').optional(),
+    discountPercentage: Joi.number().min(0).max(100).empty('').optional(),
+    totalPrice: Joi.number().min(0).empty('').optional(),
+    advancePayment: Joi.number().min(0).empty('').optional(),
+    paymentStatus: Joi.string().valid('unpaid', 'advance_paid', 'fully_paid').optional(),
+    status: Joi.string().valid('pending', 'in_production', 'ready', 'delivered', 'cancelled').optional(),
+    deliveryAddress: safeStr(200).optional().allow('', null),
+    notes: safeStr(500).optional().allow('', null),
+    orderDate: Joi.date().iso().optional().allow('', null),
+    salesmanId: Joi.number().integer().positive().empty('').optional(),
+    commissionType: Joi.string().valid('fixed', 'percentage').optional(),
+    commissionValue: Joi.number().min(0).empty('').optional()
+  }).options({ allowUnknown: true }),
+
   // POST /api/payments
   createPayment: Joi.object({
     orderId: Joi.number().integer().positive().required(),
