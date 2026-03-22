@@ -31,6 +31,7 @@ app.set('trust proxy', 1);
 // Only allow requests from the exact frontend origin. Blocks CSRF from hacker.com
 const allowedOrigins = [
   'http://localhost:5173', 
+  'http://127.0.0.1:5173',
   'http://localhost:5001'
 ];
 if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);

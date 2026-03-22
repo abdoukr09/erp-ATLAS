@@ -95,6 +95,7 @@ router.post('/login', loginLimiter, validate(schemas.login), async (req, res, ne
     });
 
     res.json({
+      token: accessToken, // Backward compatibility for the React frontend
       accessToken,
       expiresIn: ACCESS_TOKEN_EXPIRY,
       user: user.toJSON(),

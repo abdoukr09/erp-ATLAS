@@ -16,6 +16,7 @@ const OrderSalesman = require('./OrderSalesman');
 const ProductionWorker = require('./ProductionWorker');
 const MaterialReservation = require('./MaterialReservation');
 const RefreshToken = require('./RefreshToken');
+const AuditLog = require('./AuditLog');
 
 // Associations
 Customer.hasMany(Order, { foreignKey: 'customerId', as: 'orders' });
@@ -95,5 +96,60 @@ module.exports = {
   OrderSalesman,
   ProductionWorker,
   MaterialReservation,
-  RefreshToken
+  RefreshToken,
+  AuditLog
 };
+
+// ─── LEVEL 10: Enterprise Audit Trail (Global Hooks) ───────────────────────
+// Automatically record state transitions without modifying business controllers.
+const AUDITABLE_MODELS = [
+  'Order', 'Payment', 'Customer', 'ProductModel', 
+  'Material', 'Employee', 'Production', 'Delivery', 'Expense'
+];
+
+for (const modelName of AUDITABLE_MODELS) {
+  const model = module.exports[modelName];
+  if (model) {
+    model.addHook('afterUpdate', async (instance, options) => {
+      // Find what exactly changed
+      const changedKeys = instance.changed() || [];
+      if (changedKeys.length === 0) return;
+
+      const oldValues = {};
+      const newValues = {};
+      
+      changedKeys.forEach(key => {
+        oldValues[key] = instance.previous(key);
+        newValues[key] = instance.get(key);
+      });
+
+      try {
+        await AuditLog.create({
+          action: 'UPDATE',
+          modelName,
+          recordId: instance.id,
+          userId: options?.user?.id || null, // Best-effort user attribution
+          oldValues,
+          newValues
+        });
+      } catch (err) {
+        console.error('AuditLog Error:', err);
+      }
+    });
+
+    model.addHook('afterDestroy', async (instance, options) => {
+      try {
+        await AuditLog.create({
+          action: 'DELETE',
+          modelName,
+          recordId: instance.id,
+          userId: options?.user?.id || null,
+          oldValues: instance.get(),
+          newValues: null
+        });
+      } catch (err) {
+        console.error('AuditLog Error:', err);
+      }
+    });
+  }
+}
