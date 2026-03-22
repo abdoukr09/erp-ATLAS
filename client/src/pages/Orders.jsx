@@ -86,7 +86,12 @@ export default function Orders() {
       setShowModal(false); setEditing(null); setCustomTotal('');
       setForm({ customerId: '', items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], salesmen: [], discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', notes: '', status: 'pending', useStock: false });
       fetchOrders();
-    } catch (err) { alert(err.response?.data?.error || 'Error'); }
+    } catch (err) { 
+      const errMsg = err.response?.data?.details 
+        ? err.response.data.details.join(', ') 
+        : err.response?.data?.error || 'Transaction Error';
+      alert(`Erreur: ${errMsg}`); 
+    }
   };
 
   const handleEdit = (order) => {
@@ -354,6 +359,19 @@ export default function Orders() {
                 onChange={e => {
                   const rawValue = e.target.value;
                   setCustomTotal(rawValue);
+                  
+                  // Auto-recalculate the global discount percentage if they manually override the price
+                  let subtotalNoDiscount = form.items.reduce((acc, i) => acc + ((parseInt(i.quantity)||1) * (parseFloat(i.unitPrice)||0)), 0);
+                  if (subtotalNoDiscount > 0 && rawValue !== '') {
+                    const parsedVal = parseFloat(rawValue);
+                    if (!isNaN(parsedVal)) {
+                      let calcDiscount = ((subtotalNoDiscount - parsedVal) / subtotalNoDiscount) * 100;
+                      // Don't set negative discounts if they raised the price
+                      if (calcDiscount >= 0 && calcDiscount <= 100) {
+                        setForm(prev => ({ ...prev, discountPercentage: calcDiscount.toFixed(2) }));
+                      }
+                    }
+                  }
                 }}
               />
             </div>
