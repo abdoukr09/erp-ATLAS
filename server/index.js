@@ -9,6 +9,7 @@ if (!process.env.JWT_SECRET) {
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const sequelize = require('./config/database');
 const { generalLimiter } = require('./middleware/rateLimiter');
 const errorHandler = require('./middleware/errorHandler');
@@ -38,6 +39,7 @@ app.use(helmet({
 
 // ─── Core Middleware ──────────────────────────────────────────────────────────
 app.use(cors());
+app.use(cookieParser());                             // Parse HTTP-only cookies (refresh tokens)
 app.use(express.json({ limit: '1mb' }));         // Prevent large payload attacks
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 

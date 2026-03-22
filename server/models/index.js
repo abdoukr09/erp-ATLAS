@@ -15,6 +15,7 @@ const OrderItem = require('./OrderItem');
 const OrderSalesman = require('./OrderSalesman');
 const ProductionWorker = require('./ProductionWorker');
 const MaterialReservation = require('./MaterialReservation');
+const RefreshToken = require('./RefreshToken');
 
 // Associations
 Customer.hasMany(Order, { foreignKey: 'customerId', as: 'orders' });
@@ -93,5 +94,6 @@ module.exports = {
   OrderItem,
   OrderSalesman,
   ProductionWorker,
-  MaterialReservation
+  MaterialReservation,
+  RefreshToken
 };

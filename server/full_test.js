@@ -48,8 +48,9 @@ async function run() {
   try {
     const login = await request('POST', '/api/auth/login', { username: 'admin', password: 'admin123' });
     test('Login returns 200', login.status === 200, `Status: ${login.status}`);
-    test('Login returns token', !!login.data?.token, 'No token received');
-    if (login.data?.token) TOKEN = login.data.token;
+    const receivedToken = login.data?.accessToken || login.data?.token;
+    test('Login returns token', !!receivedToken, 'No token received');
+    if (receivedToken) TOKEN = receivedToken;
     else { console.log('⛔ Cannot continue without token'); process.exit(1); }
   } catch (err) { test('Login request', false, err.message); process.exit(1); }
 
