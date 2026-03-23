@@ -59,7 +59,7 @@ export default function Employees() {
     }
   };
   
-  const totalSalesFinal = performanceData.sales?.reduce((sum, s) => sum + Number(s.finalPrice || s.totalPrice || 0), 0) || 0;
+  const totalSalesFinal = performanceData.sales?.reduce((sum, s) => sum + (Number(s.finalPrice || s.totalPrice || 0) * (Number(s.splitPercentage || 100) / 100)), 0) || 0;
   const totalProductionValue = performanceData.productions?.reduce((sum, p) => sum + (Number(p.basePrice || 0) * Number(p.quantity || 1)), 0) || 0;
   const totalActivityVolume = totalSalesFinal + totalProductionValue;
 
@@ -213,22 +213,24 @@ export default function Employees() {
                      <div>
                        <h5 style={{fontSize:'0.9rem', marginBottom:5, color:'var(--text-secondary)'}}>Production (Ouvriers / Artisans)</h5>
                        <table style={{fontSize: '0.85rem'}}>
-                         <thead><tr><th>Date</th><th>Commande/Modèle</th><th>Prix Final Cde</th></tr></thead>
+                         <thead><tr><th>Date</th><th>Commande/Modèle</th><th>Valeur Base</th><th>Commission</th></tr></thead>
                          <tbody>
-                          {(performanceData.productions || []).length > 0 ? (performanceData.productions || []).map(p => (
-                            <tr key={p.id}>
-                              <td>{p.completionDate}</td>
-                              <td style={{fontWeight: 600}}>
-                                {p.orderId ? `Cde #${p.orderId}` : (p.productModel?.name || 'Stock')}
-                                <div style={{fontSize: '0.75rem', color: 'var(--text-muted)'}}>
-                                  Valeur: {Number(p.basePrice || 0).toLocaleString()} DA
-                                </div>
-                              </td>
-                              <td style={{color:'var(--accent-green)', fontWeight:'bold'}}>
-                                {p.order?.totalPrice ? `${Number(p.order.totalPrice).toLocaleString()} DA` : '-'}
-                              </td>
-                            </tr>
-                          )) : (
+                          {(performanceData.productions || []).length > 0 ? (performanceData.productions || []).map(p => {
+                            const valBase = Number(p.basePrice || 0) * Number(p.quantity || 1);
+                            const comm = valBase * (Number(selectedEmployee.commissionRate || 0) / 100);
+                            return (
+                              <tr key={p.id}>
+                                <td>{p.completionDate}</td>
+                                <td style={{fontWeight: 600}}>
+                                  {p.orderId ? `Cde #${p.orderId}` : (p.productModel?.name || 'Stock')} (x{p.quantity || 1})
+                                </td>
+                                <td>{valBase.toLocaleString()} DA</td>
+                                <td style={{color:'var(--accent-green)', fontWeight:'bold'}}>
+                                  +{comm.toLocaleString()} DA
+                                </td>
+                              </tr>
+                            );
+                          }) : (
                             <tr><td colSpan="3" style={{textAlign:'center', color:'var(--text-muted)'}}>Aucune production ce mois-ci.</td></tr>
                           )}
                          </tbody>
@@ -241,15 +243,25 @@ export default function Employees() {
                      <div>
                        <h5 style={{fontSize:'0.9rem', marginBottom:5, color:'var(--text-secondary)'}}>Ventes (Commerciaux)</h5>
                        <table style={{fontSize: '0.85rem'}}>
-                         <thead><tr><th>Date</th><th>Commande</th><th>Prix Final</th></tr></thead>
+                         <thead><tr><th>Date</th><th>Commande</th><th>Total Vente</th><th>Commission</th></tr></thead>
                          <tbody>
-                          {(performanceData.sales || []).length > 0 ? (performanceData.sales || []).map(s => (
-                            <tr key={s.id}>
-                              <td>{s.orderDate}</td>
-                              <td>#{s.id} - <span style={{fontWeight: 600}}>{s.sofaModel}</span></td>
-                              <td style={{color:'var(--accent-green)', fontWeight:'bold'}}>{Number(s.finalPrice || s.totalPrice).toLocaleString()} DA</td>
-                            </tr>
-                          )) : (
+                          {(performanceData.sales || []).length > 0 ? (performanceData.sales || []).map(s => {
+                            const totalCde = Number(s.finalPrice || s.totalPrice || 0);
+                            const split = Number(s.splitPercentage || 100);
+                            const volumePerso = totalCde * (split / 100);
+                            const comm = volumePerso * (Number(selectedEmployee.commissionRate || 0) / 100);
+                            return (
+                              <tr key={s.id}>
+                                <td>{s.orderDate}</td>
+                                <td>#{s.id} - <span style={{fontWeight: 600}}>Vente</span></td>
+                                <td>
+                                  {totalCde.toLocaleString()} DA
+                                  {split < 100 && <span style={{fontSize:'0.8em', color:'var(--accent-blue)', display:'block'}}>Partagé ({split}%) -> Net: {volumePerso.toLocaleString()} DA</span>}
+                                </td>
+                                <td style={{color:'var(--accent-green)', fontWeight:'bold'}}>+{comm.toLocaleString()} DA</td>
+                              </tr>
+                            );
+                          }) : (
                             <tr><td colSpan="3" style={{textAlign:'center', color:'var(--text-muted)'}}>Aucune vente enregistrée ce mois-ci.</td></tr>
                           )}
                          </tbody>

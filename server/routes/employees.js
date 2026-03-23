@@ -57,12 +57,41 @@ router.get('/:id/performance', authenticate, async (req, res) => {
        return p;
     });
 
-    const sales = await Order.findAll({
+    const { OrderSalesman } = require('../models');
+    
+    const legacySales = await Order.findAll({
       where: {
         salesmanId: employeeId,
         orderDate: { [Op.between]: [startDate, endDate] }
       }
     });
+
+    const junctionSales = await OrderSalesman.findAll({
+      where: { salesmanId: employeeId },
+      include: [{
+        model: Order,
+        as: 'order',
+        where: { orderDate: { [Op.between]: [startDate, endDate] } }
+      }]
+    });
+
+    const salesMap = new Map();
+    
+    legacySales.forEach(order => {
+      const o = order.toJSON();
+      o.splitPercentage = 100;
+      salesMap.set(o.id, o);
+    });
+
+    junctionSales.forEach(js => {
+      if (js.order) {
+        const o = js.order.toJSON();
+        o.splitPercentage = Number(js.splitPercentage) || 100;
+        salesMap.set(o.id, o);
+      }
+    });
+
+    const sales = Array.from(salesMap.values());
 
     res.json({ productions, sales });
   } catch (error) {
