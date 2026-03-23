@@ -13,7 +13,7 @@ router.get('/', authenticate, authorize('admin', 'delivery', 'gerant'), async (r
         as: 'order', 
         attributes: ['id', 'status', 'totalPrice', 'advancePayment', 'remainingPayment', 'paymentStatus', 'deliveryAddress'],
         include: [
-          { model: Customer, as: 'customer', attributes: ['name'] },
+          { model: Customer, as: 'customer', attributes: ['name', 'phone', 'address'] },
           { model: OrderItem, as: 'items', attributes: ['sofaModel', 'quantity'] }
         ]
       }],
