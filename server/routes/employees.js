@@ -148,7 +148,7 @@ router.delete('/:id', authenticate, authorize('admin', 'gerant'), async (req, re
 router.post('/:id/payments', authenticate, authorize('admin', 'gerant'), async (req, res) => {
   try {
     const { amount, date, description } = req.body;
-    if (!amount || !date) return res.status(400).json({ error: 'Amount and date are required.' });
+    if (amount === undefined || amount === null || !date) return res.status(400).json({ error: 'Amount and date are required.' });
 
     const payment = await EmployeePayment.create({
       employeeId: req.params.id,

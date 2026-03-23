@@ -118,7 +118,7 @@ export default function Employees() {
              if (!prev) return prev;
              return { ...prev, payments: [...(prev.payments || []), res.data] };
          });
-     } catch (err) { alert('Erreur de paiement'); }
+     } catch (err) { alert(err.response?.data?.error || `Erreur de paiement: ${err.message}`); console.error(err); }
   };
 
   const handleDeletePayment = async (payId) => {
