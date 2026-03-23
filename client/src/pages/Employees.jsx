@@ -256,7 +256,7 @@ export default function Employees() {
                                 <td>#{s.id} - <span style={{fontWeight: 600}}>Vente</span></td>
                                 <td>
                                   {totalCde.toLocaleString()} DA
-                                  {split < 100 && <span style={{fontSize:'0.8em', color:'var(--accent-blue)', display:'block'}}>Partagé ({split}%) -> Net: {volumePerso.toLocaleString()} DA</span>}
+                                  {split < 100 && <span style={{fontSize:'0.8em', color:'var(--accent-blue)', display:'block'}}>Partagé ({split}%) &gt; Net: {volumePerso.toLocaleString()} DA</span>}
                                 </td>
                                 <td style={{color:'var(--accent-green)', fontWeight:'bold'}}>+{comm.toLocaleString()} DA</td>
                               </tr>
@@ -340,7 +340,7 @@ export default function Employees() {
           <div className="form-row">
             <div className="form-group">
               <label>Taux de Commission par défaut (%)</label>
-              <input className="form-control" type="number" min="0" max="100" step="0.5" value={form.commissionRate} onChange={e => {
+              <input className="form-control" type="number" min="0" max="100" step="0.01" value={form.commissionRate} onChange={e => {
                   let parsedRate = parseFloat(e.target.value);
                   if (isNaN(parsedRate)) parsedRate = 0;
                   setForm({...form, commissionRate: e.target.value});
@@ -395,7 +395,7 @@ export default function Employees() {
               <div className="form-group" style={{background:'#f8fafc', padding:'8px 12px', borderRadius:8, border:'1px solid #e2e8f0'}}>
                 <label>2. Taux de Commission (%)</label>
                 <div style={{display:'flex', alignItems:'center', gap: '10px'}}>
-                  <input className="form-control" type="number" step="0.5" min="0" max="100" style={{width: '80px'}} value={paymentForm.customRate} onChange={e => {
+                  <input className="form-control" type="number" step="0.01" min="0" max="100" style={{width: '80px'}} value={paymentForm.customRate} onChange={e => {
                     // Fix float precision issues (e.g. 5.99999999 -> 6.0)
                     let parsedRate = parseFloat(e.target.value);
                     if (isNaN(parsedRate)) parsedRate = 0;
