@@ -98,7 +98,7 @@ export default function Deliveries() {
           </div>
         </div>
         <table>
-          <thead><tr><th>ID</th><th>Commande</th><th>Client</th><th>Adresse</th><th>Modèle</th><th>Chauffeur</th><th>Reste à Payer</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
+          <thead><tr><th>ID</th><th>Commande</th><th>Client</th><th>Téléphone</th><th>Adresse</th><th>Modèle</th><th>Chauffeur</th><th>Reste à Payer</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
           <tbody>
             {filtered.length > 0 ? filtered.map(d => {
               const reste = d.order ? (Number(d.order.totalPrice || 0) - Number(d.order.advancePayment || 0)) : 0;
@@ -110,7 +110,11 @@ export default function Deliveries() {
                 <td>Commande #{d.orderId}</td>
                 <td>
                   <span style={{fontWeight:600}}>{d.order?.customer?.name || '—'}</span>
-                  {d.order?.customer?.phone && <div style={{fontSize:'0.8em', color:'var(--text-muted)'}}>{d.order.customer.phone}</div>}
+                </td>
+                <td>
+                  <div style={{fontWeight:500, color:'var(--text-primary)'}}>
+                    {d.order?.customer?.phone || '—'}
+                  </div>
                 </td>
                 <td>
                   <div style={{fontSize: '0.85em', color: 'var(--text-secondary)', maxWidth: '200px', whiteSpace: 'normal', lineHeight: '1.3'}}>
