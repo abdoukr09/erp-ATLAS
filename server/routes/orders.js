@@ -10,7 +10,7 @@ router.get('/', authenticate, async (req, res) => {
   try {
     const orders = await Order.findAll({
       include: [
-        { model: Customer, as: 'customer', attributes: ['id', 'name', 'phone'] },
+        { model: Customer, as: 'customer', attributes: ['id', 'name', 'phone', 'address'] },
         { model: Payment, as: 'payments', attributes: ['id', 'amount', 'status', 'method'] },
         { model: OrderItem, as: 'items' },
         { model: OrderSalesman, as: 'salesmen', include: [{ model: Employee, as: 'salesman', attributes: ['name'] }] }

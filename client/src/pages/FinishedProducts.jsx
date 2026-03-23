@@ -43,6 +43,7 @@ export default function FinishedProducts() {
             <tr>
               <th>ID Commande</th>
               <th>Client</th>
+              <th>Adresse & Contact</th>
               <th>Modèle</th>
               <th>Qté</th>
               <th>Statut</th>
@@ -52,7 +53,15 @@ export default function FinishedProducts() {
             {filteredOrders.length > 0 ? filteredOrders.map(o => (
               <tr key={o.id}>
                 <td>#{o.id}</td>
-                <td style={{ fontWeight: 600 }}>{o.customer?.name || '—'}</td>
+                <td style={{ fontWeight: 600 }}>
+                  {o.customer?.name || '—'}
+                  {o.customer?.phone && <div style={{fontSize:'0.8em', color:'var(--text-muted)'}}>{o.customer.phone}</div>}
+                </td>
+                <td>
+                  <div style={{fontSize: '0.85em', color: 'var(--text-secondary)', maxWidth: '200px', whiteSpace: 'normal', lineHeight: '1.3'}}>
+                    {o.deliveryAddress || o.customer?.address || 'Non spécifiée'}
+                  </div>
+                </td>
                 <td>
                   {o.items && o.items.length > 0 ? (
                     <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
