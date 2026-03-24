@@ -25,7 +25,8 @@ export function AuthProvider({ children }) {
     return userData;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try { await api.post('/auth/logout'); } catch (err) { /* ignore */ }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);

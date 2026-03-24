@@ -17,6 +17,8 @@ import Tariffs from './pages/Tariffs';
 import Employees from './pages/Employees';
 import './index.css';
 
+import SessionManager from './components/SessionManager';
+
 function AppRoutes() {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -45,7 +47,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <SessionManager>
+          <AppRoutes />
+        </SessionManager>
       </AuthProvider>
     </BrowserRouter>
   );
