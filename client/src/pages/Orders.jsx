@@ -237,12 +237,12 @@ export default function Orders() {
                         <div style={{fontSize:'0.75em', color:'var(--accent-blue)'}}>Remise: {o.discountPercentage}%</div>
                       )}
                       <div style={{fontSize:'0.85em', color:'var(--text-muted)'}}>
-                        Avance: {Number(o.advancePayment || 0).toLocaleString()} DH
+                        Avance: {Number(o.advancePayment || 0).toLocaleString()} DA
                       </div>
-                      <div style={{fontSize:'0.85em', fontWeight:600, color: (Number(o.totalPrice) <= Number(o.advancePayment || 0)) ? 'var(--accent-green)' : 'var(--accent-red)'}}>
-                        {(Number(o.totalPrice) <= Number(o.advancePayment || 0)) 
+                      <div style={{fontSize:'0.85em', fontWeight:600, color: (Number(o.remainingPayment) <= 0 || o.paymentStatus === 'fully_paid') ? 'var(--accent-green)' : 'var(--accent-red)'}}>
+                        {(Number(o.remainingPayment) <= 0 || o.paymentStatus === 'fully_paid') 
                           ? 'Versement complet' 
-                          : `Reste: ${(Number(o.totalPrice) - Number(o.advancePayment || 0)).toLocaleString()} DA`}
+                          : `Reste: ${Number(o.remainingPayment).toLocaleString()} DA`}
                       </div>
                     </>
                   )}
