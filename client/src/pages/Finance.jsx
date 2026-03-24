@@ -110,7 +110,9 @@ export default function Finance() {
                 </td>
                 <td style={{fontWeight:600, color:'var(--text-primary)'}}>{p.order?.customer?.name || '—'}</td>
                 <td>
-                  {p.type === 'advance' ? (
+                  {(p.type === 'advance' && Number(p.order?.totalPrice || Infinity) > 0 && Number(p.amount) >= Number(p.order?.totalPrice)) ? (
+                    <span style={{fontWeight:700, color:'#22c55e', background:'rgba(34,197,94,0.12)', padding:'3px 10px', borderRadius:20, fontSize:12}}>Paiement Complet</span>
+                  ) : p.type === 'advance' ? (
                     <span className="badge badge-blue">Avance</span>
                   ) : p.type === 'final' ? (
                     <span style={{fontWeight:700, color:'#22c55e', background:'rgba(34,197,94,0.12)', padding:'3px 10px', borderRadius:20, fontSize:12}}>Paiement Final</span>
