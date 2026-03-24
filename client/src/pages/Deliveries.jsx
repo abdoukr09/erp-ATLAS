@@ -101,7 +101,7 @@ export default function Deliveries() {
           <thead><tr><th>ID</th><th>Commande</th><th>Client</th><th>Téléphone</th><th>Adresse</th><th>Modèle</th><th>Chauffeur</th><th>Reste à Payer</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
           <tbody>
             {filtered.length > 0 ? filtered.map(d => {
-              const reste = d.order ? (Number(d.order.totalPrice || 0) - Number(d.order.advancePayment || 0)) : 0;
+              const reste = d.order ? Number(d.order.remainingPayment || 0) : 0;
               const isDelivered = d.status === 'delivered';
               const isFullyPaid = isDelivered || d.order?.paymentStatus === 'fully_paid' || reste <= 0;
               return (
@@ -221,12 +221,12 @@ export default function Deliveries() {
                 <p style={{margin: 0, fontSize: 12, color: 'var(--text-muted)'}}>Avance Payée</p>
                 <p style={{margin: 0, fontSize: 18, fontWeight: 700, color: '#3b82f6'}}>{Number(confirmDelivery.order?.advancePayment || 0).toLocaleString()} DA</p>
               </div>
-              <div>
-                <p style={{margin: 0, fontSize: 12, color: 'var(--text-muted)'}}>Reste à Payer</p>
-                <p style={{margin: 0, fontSize: 22, fontWeight: 800, color: '#22c55e'}}>
-                  {Math.max(0, Number(confirmDelivery.order?.totalPrice || 0) - Number(confirmDelivery.order?.advancePayment || 0)).toLocaleString()} DH
-                </p>
-              </div>
+            </div>
+            <div style={{background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: 8, padding: 15, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+              <h4 style={{margin: 0, color: '#ef4444'}}>Reste à encaisser à la livraison</h4>
+              <p style={{margin: 0, fontSize: 24, fontWeight: 800, color: '#ef4444'}}>
+                {Number(confirmDelivery.order?.remainingPayment || 0).toLocaleString()} DA
+              </p>
             </div>
           </div>
 
