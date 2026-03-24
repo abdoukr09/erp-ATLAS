@@ -239,13 +239,15 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
             // Check if all other items for this Order are also ready
             const itemOrderId = production.orderItem ? production.orderItem.orderId : (await OrderItem.findByPk(production.orderItemId, { transaction: t }))?.orderId;
             const parentOrder = await Order.findByPk(itemOrderId, {
-              include: [{ model: OrderItem, as: 'items' }],
               transaction: t,
               lock: t.LOCK.UPDATE
             });
             
-            if (parentOrder && parentOrder.items.every(item => item.id === production.orderItemId || item.status === 'ready')) {
-              await parentOrder.update({ status: 'ready' }, { transaction: t });
+            if (parentOrder) {
+              parentOrder.items = await OrderItem.findAll({ where: { orderId: itemOrderId }, transaction: t });
+              if (parentOrder.items.every(item => item.id === production.orderItemId || item.status === 'ready')) {
+                await parentOrder.update({ status: 'ready' }, { transaction: t });
+              }
             }
          }
       } else if (production.productModelId) {
