@@ -180,7 +180,6 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
     if (req.body.orderId === '') req.body.orderId = null;
     if (req.body.productModelId === '') req.body.productModelId = null;
     const production = await Production.findByPk(req.params.id, {
-      include: [{ model: OrderItem, as: 'orderItem' }],
       transaction: t,
       lock: t.LOCK.UPDATE
     });
@@ -188,6 +187,10 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
     if (!production) {
       await t.rollback();
       return res.status(404).json({ error: 'Production record not found.' });
+    }
+
+    if (production.orderItemId) {
+      production.orderItem = await OrderItem.findByPk(production.orderItemId, { transaction: t });
     }
 
     const newStatus = req.body.status;
