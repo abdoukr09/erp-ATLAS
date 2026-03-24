@@ -498,8 +498,8 @@ export default function Orders() {
           })()}
           <div className="form-row">
             <div className="form-group">
-              <label>Avance (DA)</label>
-              <input className="form-control" type="number" min="0" placeholder="Montant de l'avance" value={form.advancePayment} onChange={e => setForm({...form, advancePayment: e.target.value})} />
+              <label>Avance (DA) {editing && <span style={{fontSize: '0.8em', color: 'var(--text-muted)'}}>(Voir Finances)</span>}</label>
+              <input className="form-control" type="number" min="0" placeholder="Montant de l'avance" value={form.advancePayment} onChange={e => setForm({...form, advancePayment: e.target.value})} disabled={!!editing} />
             </div>
           </div>
           {!editing && (
