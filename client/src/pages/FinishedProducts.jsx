@@ -15,7 +15,10 @@ export default function FinishedProducts() {
         api.get('/orders'),
         api.get('/product-models')
       ]);
-      setOrders(ordRes.data.filter(o => o.status === 'ready'));
+      setOrders(ordRes.data.filter(o => 
+        o.status === 'ready' || 
+        (o.status !== 'delivered' && o.status !== 'cancelled' && o.items && o.items.some(i => i.status === 'ready'))
+      ));
       setProductModels(modRes.data);
     } catch (err) {
       console.error(err);
@@ -66,7 +69,9 @@ export default function FinishedProducts() {
                   {o.items && o.items.length > 0 ? (
                     <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                       {o.items.map((item, idx) => (
-                        <div key={idx} style={{fontSize:'0.9em'}}>{item.sofaModel}</div>
+                        <div key={idx} style={{fontSize:'0.9em', fontWeight: item.status === 'ready' ? 600 : 400, color: item.status === 'ready' ? 'var(--accent-green)' : 'var(--text-muted)'}}>
+                          {item.sofaModel} {item.status === 'ready' ? '(Prêt ✅)' : '(En attente ⏳)'}
+                        </div>
                       ))}
                     </div>
                   ) : o.sofaModel || '—'}
@@ -75,12 +80,18 @@ export default function FinishedProducts() {
                   {o.items && o.items.length > 0 ? (
                     <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                       {o.items.map((item, idx) => (
-                        <div key={idx} style={{fontSize:'0.9em'}}>{item.quantity}</div>
+                        <div key={idx} style={{fontSize:'0.9em', color: item.status === 'ready' ? 'var(--text-primary)' : 'var(--text-muted)'}}>x{item.quantity}</div>
                       ))}
                     </div>
                   ) : o.quantity || '0'}
                 </td>
-                <td><span className={`badge badge-${o.status}`}>{o.status === 'ready' ? 'Prêt' : 'Livré'}</span></td>
+                <td>
+                  {o.status === 'ready' ? (
+                    <span className="badge badge-ready" style={{background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e'}}>Prêt (Complet)</span>
+                  ) : (
+                    <span className="badge badge-pending" style={{background: 'rgba(234, 179, 8, 0.15)', color: '#ca8a04'}}>Partiel</span>
+                  )}
+                </td>
               </tr>
             )) : (
               <tr><td colSpan="5" className="table-empty"><p>Aucune commande prête</p></td></tr>
