@@ -7,6 +7,7 @@ const router = express.Router();
 router.get('/', authenticate, authorize('admin', 'sales', 'gerant'), async (req, res) => {
   try {
     const customers = await Customer.findAll({
+      where: { isDeleted: false },
       include: [{ model: Order, as: 'orders', attributes: ['id', 'status', 'totalPrice'] }],
       order: [['createdAt', 'DESC']],
     });
@@ -61,8 +62,8 @@ router.delete('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async
     const customer = await Customer.findByPk(req.params.id);
     if (!customer) return res.status(404).json({ error: 'Customer not found.' });
 
-    await customer.destroy();
-    res.json({ message: 'Customer deleted.' });
+    await customer.update({ isDeleted: true });
+    res.json({ message: 'Customer soft-deleted.' });
   } catch (error) {
     res.status(500).json({ error: 'Server error.' });
   }

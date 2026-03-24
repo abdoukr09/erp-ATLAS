@@ -31,6 +31,11 @@ const Customer = sequelize.define('Customer', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  isDeleted: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
 }, {
   tableName: 'customers',
   timestamps: true,
