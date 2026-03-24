@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
 import Modal from '../components/Modal';
+import { useAuth } from '../context/AuthContext';
 import { Plus, Pencil, Trash2, Search, ShoppingCart } from 'lucide-react';
 
 export default function Orders() {
+  const { user } = useAuth();
+  const isProduction = user?.role === 'production';
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [productModels, setProductModels] = useState([]);
@@ -179,9 +182,11 @@ export default function Orders() {
               <Search className="search-icon" />
               <input className="search-input" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
-            <button className="btn btn-primary" onClick={() => { setEditing(null); setCustomerSearch(''); setForm({ customerId: '', items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], salesmen: [], discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', notes: '', status: 'pending', useStock: false }); setShowModal(true); }}>
-              <Plus size={16} /> Nouvelle Commande
-            </button>
+            {!isProduction && (
+              <button className="btn btn-primary" onClick={() => { setEditing(null); setCustomerSearch(''); setForm({ customerId: '', items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], salesmen: [], discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', notes: '', status: 'pending', useStock: false }); setShowModal(true); }}>
+                <Plus size={16} /> Nouvelle Commande
+              </button>
+            )}
           </div>
         </div>
         <table>
@@ -191,10 +196,10 @@ export default function Orders() {
               <th>Client</th>
               <th>Modèle</th>
               <th>Qté</th>
-              <th>Total / Avance / Reste</th>
+              {isProduction ? <th>Destination (Adresse)</th> : <th>Total / Avance / Reste</th>}
               <th>Statut</th>
               <th>Date</th>
-              <th>Actions</th>
+              {!isProduction && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -221,27 +226,37 @@ export default function Orders() {
                   ) : <span>{o.quantity || '—'}</span>}
                 </td>
                 <td>
-                  <div style={{fontWeight:600}}>{Number(o.totalPrice).toLocaleString()} DA</div>
-                  {Number(o.discountPercentage) > 0 && (
-                    <div style={{fontSize:'0.75em', color:'var(--accent-blue)'}}>Remise: {o.discountPercentage}%</div>
+                  {isProduction ? (
+                    <div style={{fontSize: '0.85em', color: 'var(--text-secondary)'}}>
+                      {o.deliveryAddress || o.customer?.address || 'Adresse au magasin ou non spécifiée'}
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{fontWeight:600}}>{Number(o.totalPrice).toLocaleString()} DA</div>
+                      {Number(o.discountPercentage) > 0 && (
+                        <div style={{fontSize:'0.75em', color:'var(--accent-blue)'}}>Remise: {o.discountPercentage}%</div>
+                      )}
+                      <div style={{fontSize:'0.85em', color:'var(--text-muted)'}}>
+                        Avance: {Number(o.advancePayment || 0).toLocaleString()} DH
+                      </div>
+                      <div style={{fontSize:'0.85em', fontWeight:600, color: (Number(o.totalPrice) <= Number(o.advancePayment || 0)) ? 'var(--accent-green)' : 'var(--accent-red)'}}>
+                        {(Number(o.totalPrice) <= Number(o.advancePayment || 0)) 
+                          ? 'Versement complet' 
+                          : `Reste: ${(Number(o.totalPrice) - Number(o.advancePayment || 0)).toLocaleString()} DA`}
+                      </div>
+                    </>
                   )}
-                  <div style={{fontSize:'0.85em', color:'var(--text-muted)'}}>
-                    Avance: {Number(o.advancePayment || 0).toLocaleString()} DH
-                  </div>
-                  <div style={{fontSize:'0.85em', fontWeight:600, color: (Number(o.totalPrice) <= Number(o.advancePayment || 0)) ? 'var(--accent-green)' : 'var(--accent-red)'}}>
-                    {(Number(o.totalPrice) <= Number(o.advancePayment || 0)) 
-                      ? 'Versement complet' 
-                      : `Reste: ${(Number(o.totalPrice) - Number(o.advancePayment || 0)).toLocaleString()} DA`}
-                  </div>
                 </td>
                 <td><span className={`badge badge-${o.status}`}>{statusLabels[o.status] || o.status}</span></td>
                 <td>{o.orderDate}</td>
-                <td>
-                  <div className="action-buttons">
-                    <button className="btn-icon edit" onClick={() => handleEdit(o)}><Pencil size={14} /></button>
-                    <button className="btn-icon danger" onClick={() => handleDelete(o.id)}><Trash2 size={14} /></button>
-                  </div>
-                </td>
+                {!isProduction && (
+                  <td>
+                    <div className="action-buttons">
+                      <button className="btn-icon edit" onClick={() => handleEdit(o)}><Pencil size={14} /></button>
+                      <button className="btn-icon danger" onClick={() => handleDelete(o.id)}><Trash2 size={14} /></button>
+                    </div>
+                  </td>
+                )}
               </tr>
             )) : (
               <tr><td colSpan="9" className="table-empty"><ShoppingCart size={32} style={{color:'var(--text-muted)'}} /><p>Aucune commande trouvée</p></td></tr>

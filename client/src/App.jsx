@@ -26,7 +26,7 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
       <Route path="/" element={<ProtectedRoute roles={['admin', 'sales', 'gerant']}><Dashboard /></ProtectedRoute>} />
       <Route path="/customers" element={<ProtectedRoute roles={['admin', 'sales', 'gerant']}><Customers /></ProtectedRoute>} />
-      <Route path="/orders" element={<ProtectedRoute roles={['admin', 'sales', 'gerant']}><Orders /></ProtectedRoute>} />
+      <Route path="/orders" element={<ProtectedRoute roles={['admin', 'sales', 'gerant', 'production']}><Orders /></ProtectedRoute>} />
       <Route path="/inventory" element={<ProtectedRoute roles={['admin', 'production', 'gerant']}><Inventory /></ProtectedRoute>} />
       <Route path="/catalog" element={<ProtectedRoute roles={['admin', 'production', 'gerant', 'sales']}><Catalog /></ProtectedRoute>} />
       <Route path="/production" element={<ProtectedRoute roles={['admin', 'production', 'gerant']}><Production /></ProtectedRoute>} />

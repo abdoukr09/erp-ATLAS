@@ -8,9 +8,9 @@ import {
 
 const menuItems = [
   { section: 'Principal', icon: LayoutDashboard, label: 'Tableau de bord', path: '/', roles: ['admin', 'gerant', 'sales'] },
-  { section: 'Commerce', icon: BookOpen, label: 'Catalogue', path: '/catalog', roles: ['admin', 'sales', 'gerant'] },
+  { section: 'Commerce', icon: BookOpen, label: 'Catalogue', path: '/catalog', roles: ['admin', 'sales', 'gerant', 'production'] },
   { section: 'Commerce', icon: Users, label: 'Clients', path: '/customers', roles: ['admin', 'sales', 'gerant'] },
-  { section: 'Commerce', icon: ShoppingCart, label: 'Commandes', path: '/orders', roles: ['admin', 'sales', 'gerant'] },
+  { section: 'Commerce', icon: ShoppingCart, label: 'Commandes', path: '/orders', roles: ['admin', 'sales', 'gerant', 'production'] },
   { section: 'Commerce', icon: CreditCard, label: 'Finances', path: '/finance', roles: ['admin', 'sales', 'gerant'] },
   { section: 'Opérations', icon: Box, label: 'Matières Premières', path: '/inventory', roles: ['admin', 'production', 'gerant'] },
   { section: 'Opérations', icon: PackageCheck, label: 'Stock (Produits Finis)', path: '/finished-products', roles: ['admin', 'production', 'gerant', 'delivery', 'sales'] },
