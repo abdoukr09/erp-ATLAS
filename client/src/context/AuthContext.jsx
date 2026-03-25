@@ -21,6 +21,7 @@ export function AuthProvider({ children }) {
     const { token, user: userData } = res.data;
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('lastActivity', Date.now().toString());
     setUser(userData);
     return userData;
   };

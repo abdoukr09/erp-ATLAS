@@ -34,8 +34,8 @@ export default function SessionManager({ children }) {
 
     events.forEach(e => window.addEventListener(e, handleActivity));
     
-    // Initialize
-    if (!localStorage.getItem('lastActivity')) updateActivity();
+    // Initialize activity tracking unconditionally upon app focus/mount
+    updateActivity();
 
     // Check inactivity every second
     const interval = setInterval(() => {
