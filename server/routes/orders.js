@@ -5,13 +5,24 @@ const { writeLimiter } = require('../middleware/rateLimiter');
 const { validate, schemas } = require('../middleware/validate');
 const router = express.Router();
 
-// GET /api/orders
-router.get('/', authenticate, async (req, res) => {
+// GET /api/orders - Restricted roles + Field-level filtering for least privilege
+router.get('/', authenticate, authorize('admin', 'sales', 'gerant', 'production', 'delivery'), async (req, res) => {
   try {
+    const isFullAccess = ['admin', 'sales', 'gerant'].includes(req.user.role);
+    
+    // Define attributes based on role
+    const orderAttributes = isFullAccess 
+      ? undefined // Include all
+      : ['id', 'customerId', 'deliveryAddress', 'notes', 'orderDate', 'status', 'createdAt'];
+
     const orders = await Order.findAll({
+      attributes: orderAttributes,
       include: [
-        { model: Customer, as: 'customer', attributes: ['id', 'name', 'phone', 'address'] },
-        { model: Payment, as: 'payments', attributes: ['id', 'amount', 'status', 'method'] },
+        { 
+          model: Customer, as: 'customer', 
+          attributes: isFullAccess ? ['id', 'name', 'phone', 'address'] : ['id', 'name', 'address'] 
+        },
+        ...(isFullAccess ? [{ model: Payment, as: 'payments', attributes: ['id', 'amount', 'status', 'method'] }] : []),
         { model: OrderItem, as: 'items' },
         { model: OrderSalesman, as: 'salesmen', include: [{ model: Employee, as: 'salesman', attributes: ['name'] }] }
       ],
@@ -19,6 +30,7 @@ router.get('/', authenticate, async (req, res) => {
     });
     res.json(orders);
   } catch (error) {
+    console.error('Get Orders Error:', error);
     res.status(500).json({ error: 'Server error.' });
   }
 });

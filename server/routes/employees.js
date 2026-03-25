@@ -4,8 +4,8 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { Op } = require('sequelize');
 const router = express.Router();
 
-// GET /api/employees - List all employees with payments
-router.get('/', authenticate, async (req, res) => {
+// GET /api/employees - List all employees with payments (Management only)
+router.get('/', authenticate, authorize('admin', 'gerant'), async (req, res) => {
   try {
     const employees = await Employee.findAll({
       include: [{ model: EmployeePayment, as: 'payments', attributes: ['id', 'amount', 'date', 'description'] }],
@@ -18,8 +18,8 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/employees/:id/performance - Calculate performance for a month
-router.get('/:id/performance', authenticate, async (req, res) => {
+// GET /api/employees/:id/performance - Performance metrics (Management only)
+router.get('/:id/performance', authenticate, authorize('admin', 'gerant'), async (req, res) => {
   try {
     const { month } = req.query; // Expected: 'YYYY-MM'
     if (!month) return res.status(400).json({ error: 'Month is required.' });

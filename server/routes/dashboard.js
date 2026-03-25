@@ -5,8 +5,8 @@ const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 const router = express.Router();
 
-// GET /api/dashboard/stats - accessible by ALL authenticated users
-router.get('/stats', authenticate, async (req, res) => {
+// GET /api/dashboard/stats - Management only
+router.get('/stats', authenticate, authorize('admin', 'gerant'), async (req, res) => {
   try {
     const totalOrders = await Order.count();
     const pendingOrders = await Order.count({ where: { status: 'pending' } });

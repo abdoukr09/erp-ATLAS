@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import api from '../api';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import api, { setAccessToken } from '../api';
 
 const AuthContext = createContext(null);
 
@@ -7,19 +7,46 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    if (token && savedUser) {
-      setUser(JSON.parse(savedUser));
+  const refreshSession = useCallback(async () => {
+    try {
+      const res = await api.post('/auth/refresh');
+      const { accessToken, user: userData } = res.data;
+      setAccessToken(accessToken);
+      if (userData) {
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+      } else {
+        // Fallback for refresh endpoint that only returns token
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) setUser(JSON.parse(savedUser));
+      }
+      return true;
+    } catch (err) {
+      console.error('Silent refresh failed:', err);
+      return false;
     }
-    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        // Attempt to recover session silently
+        const success = await refreshSession();
+        if (!success) {
+           localStorage.removeItem('user');
+           setUser(null);
+        }
+      }
+      setLoading(false);
+    };
+    initAuth();
+  }, [refreshSession]);
 
   const login = async (username, password) => {
     const res = await api.post('/auth/login', { username, password });
-    const { token, user: userData } = res.data;
-    localStorage.setItem('token', token);
+    const { accessToken, user: userData } = res.data;
+    setAccessToken(accessToken);
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('lastActivity', Date.now().toString());
     setUser(userData);
@@ -28,7 +55,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try { await api.post('/auth/logout'); } catch (err) { /* ignore */ }
-    localStorage.removeItem('token');
+    setAccessToken(null);
     localStorage.removeItem('user');
     setUser(null);
   };
@@ -38,7 +65,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, hasRole }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, hasRole, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

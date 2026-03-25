@@ -8,11 +8,16 @@ const api = axios.create({
   withCredentials: true // Critical for sending HTTP-only refresh tokens securely
 });
 
-// Add token to every request
+let _accessToken = null;
+
+export const setAccessToken = (token) => {
+  _accessToken = token;
+};
+
+// Add token to every request from memory
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (_accessToken) {
+    config.headers.Authorization = `Bearer ${_accessToken}`;
   }
   return config;
 });
