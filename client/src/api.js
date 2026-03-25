@@ -46,7 +46,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       // If the `/refresh` endpoint itself failed, the session is fully dead
       if (originalRequest.url === '/auth/refresh') {
-        localStorage.removeItem('token');
+        setAccessToken(null);
         localStorage.removeItem('user');
         window.location.href = '/login';
         return Promise.reject(error);
@@ -81,7 +81,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (err) {
         processQueue(err, null);
-        localStorage.removeItem('token');
+        setAccessToken(null);
         localStorage.removeItem('user');
         window.location.href = '/login';
         return Promise.reject(err);
