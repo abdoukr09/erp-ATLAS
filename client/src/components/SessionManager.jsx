@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AlertTriangle } from 'lucide-react';
-import api from '../api';
+import api, { setAccessToken } from '../api';
 
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 const WARNING_THRESHOLD_MS = 14 * 60 * 1000; // 14 minutes
@@ -21,7 +21,7 @@ export default function SessionManager({ children }) {
     if (!user) return; // Only track when logged in
 
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    
+
     // Throttle activity updates to once per second
     let throttleTimer;
     const handleActivity = () => {
@@ -33,7 +33,7 @@ export default function SessionManager({ children }) {
     };
 
     events.forEach(e => window.addEventListener(e, handleActivity));
-    
+
     // Initialize activity tracking unconditionally upon app focus/mount
     updateActivity();
 
@@ -41,7 +41,7 @@ export default function SessionManager({ children }) {
     const interval = setInterval(() => {
       const lastActivityStr = localStorage.getItem('lastActivity');
       if (!lastActivityStr) return;
-      
+
       const lastActivity = parseInt(lastActivityStr, 10);
       const now = Date.now();
       const diff = now - lastActivity;
@@ -69,7 +69,7 @@ export default function SessionManager({ children }) {
       // Silently refresh the backend token to extend the real JWT
       const res = await api.post('/auth/refresh', {});
       if (res.data.accessToken) {
-         localStorage.setItem('token', res.data.accessToken);
+         setAccessToken(res.data.accessToken);
       }
       localStorage.setItem('lastActivity', Date.now().toString());
       setShowWarning(false);

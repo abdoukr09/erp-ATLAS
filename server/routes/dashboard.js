@@ -1,6 +1,6 @@
 const express = require('express');
 const { Order, Customer, Material, Production, Payment, Delivery, OrderItem } = require('../models');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 const router = express.Router();
