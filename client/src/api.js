@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = 'http://172.20.10.2:5001/api';
+const hostname = window.location.hostname;
+const API_URL = `http://${hostname}:5001/api`;
 
 const api = axios.create({
   baseURL: API_URL,

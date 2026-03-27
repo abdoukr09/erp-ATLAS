@@ -90,7 +90,7 @@ router.post('/login', loginLimiter, validate(schemas.login), async (req, res, ne
     res.cookie('refreshToken', rawRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production', // HTTPS only in prod
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000,
     });
 
@@ -149,7 +149,7 @@ router.post('/refresh', async (req, res, next) => {
     res.cookie('refreshToken', newRawToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000,
     });
 
