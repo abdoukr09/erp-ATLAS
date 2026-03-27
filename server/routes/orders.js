@@ -187,6 +187,50 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), validate
 
     const wasDelivered = order.status === 'delivered';
     const willBeDelivered = req.body.status === 'delivered';
+    const wasCancelled = order.status === 'cancelled';
+    const willBeCancelled = req.body.status === 'cancelled';
+
+    if (!wasCancelled && willBeCancelled) {
+      const productions = await Production.findAll({
+        where: { orderId: order.id },
+        include: [{ model: OrderItem, as: 'orderItem' }],
+        transaction: t
+      });
+      for (const prod of productions) {
+        if (prod.status === 'cancelled') continue;
+        
+        const qty = prod.orderItem ? prod.orderItem.quantity : 1;
+        const targetModel = prod.orderItem
+          ? await ProductModel.findOne({ where: { name: prod.orderItem.sofaModel }, transaction: t })
+          : (prod.productModelId ? await ProductModel.findByPk(prod.productModelId, { transaction: t }) : null);
+
+        if (prod.status === 'completed' || prod.status === 'delivered') {
+          // Finished Product: goes to ProductModels stock
+          if (targetModel) {
+            await targetModel.update({ stock: Number(targetModel.stock) + qty }, { transaction: t });
+          }
+        } else if (prod.materialsDeducted) {
+          // Unfinished Product: restore Raw Materials
+          if (targetModel) {
+            const bomEntries = await ModelMaterial.findAll({ where: { modelId: targetModel.id }, transaction: t });
+            for (const bom of bomEntries) {
+              const revertQty = Number(bom.quantity) * qty;
+              const mat = await Material.findByPk(bom.materialId, { transaction: t, lock: t.LOCK.UPDATE });
+              if (mat) await mat.update({ stock: Number(mat.stock) + revertQty }, { transaction: t });
+            }
+          }
+          await prod.update({ status: 'cancelled', materialsDeducted: false }, { transaction: t });
+        } else {
+          await prod.update({ status: 'cancelled' }, { transaction: t });
+        }
+        
+        if (prod.orderItem) {
+          await prod.orderItem.update({ status: 'cancelled' }, { transaction: t });
+        }
+      }
+      // Release any pending material reservations
+      await MaterialReservation.destroy({ where: { orderId: order.id, status: 'reserved' }, transaction: t });
+    }
 
     // Recalculate Total Price based on sub-items if passed
     if (req.body.items && Array.isArray(req.body.items)) {
@@ -300,13 +344,20 @@ router.delete('/:id', authenticate, authorize('admin', 'sales', 'gerant'), async
       transaction: t
     });
     for (const prod of productions) {
-      if (prod.materialsDeducted) {
-        const qty = prod.orderItem ? prod.orderItem.quantity : 1;
-        // Revert: lock each material row and restore stock
-        const targetModel = prod.orderItem
-          ? await ProductModel.findOne({ where: { name: prod.orderItem.sofaModel }, transaction: t })
-          : (prod.productModelId ? await ProductModel.findByPk(prod.productModelId, { transaction: t }) : null);
+      if (prod.status === 'cancelled') continue; // If already cancelled, stock was handled
+      
+      const qty = prod.orderItem ? prod.orderItem.quantity : 1;
+      const targetModel = prod.orderItem
+        ? await ProductModel.findOne({ where: { name: prod.orderItem.sofaModel }, transaction: t })
+        : (prod.productModelId ? await ProductModel.findByPk(prod.productModelId, { transaction: t }) : null);
 
+      if (prod.status === 'completed' || prod.status === 'delivered') {
+        // Product was finished before deletion. Protect finished inventory.
+        if (targetModel) {
+          await targetModel.update({ stock: Number(targetModel.stock) + qty }, { transaction: t });
+        }
+      } else if (prod.materialsDeducted) {
+        // Product was unfinished but materials deducted. Revert raw materials.
         if (targetModel) {
           const bomEntries = await ModelMaterial.findAll({ where: { modelId: targetModel.id }, transaction: t });
           for (const bom of bomEntries) {

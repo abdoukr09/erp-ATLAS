@@ -97,6 +97,24 @@ router.put('/:id', authenticate, authorize('admin', 'gerant', 'production'), asy
   }
 });
 
+// ADJUST direct finished product stock
+router.put('/:id/stock', authenticate, authorize('admin', 'gerant', 'production'), async (req, res) => {
+  try {
+    const { quantityToAdd } = req.body;
+    const model = await ProductModel.findByPk(req.params.id);
+    if (!model) return res.status(404).json({ error: 'Model not found.' });
+    
+    // Allow positive (add) or negative (remove) adjustments
+    const newStock = Math.max(0, Number(model.stock || 0) + Number(quantityToAdd));
+    await model.update({ stock: newStock });
+    
+    res.json({ message: 'Stock adjusted successfully', stock: newStock });
+  } catch (error) {
+    console.error('Stock Adjustment Error:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
+  }
+});
+
 // GET BOM for a specific model
 router.get('/:id/bom', authenticate, async (req, res) => {
   try {
