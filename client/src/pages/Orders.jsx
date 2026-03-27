@@ -246,8 +246,8 @@ export default function Orders() {
                       </div>
                       <div style={{fontSize:'0.85em', fontWeight:600, color: (Number(o.remainingPayment) <= 0 || o.paymentStatus === 'fully_paid') ? 'var(--accent-green)' : 'var(--accent-red)'}}>
                         {(Number(o.remainingPayment) <= 0 || o.paymentStatus === 'fully_paid') 
-                          ? 'Versement complet' 
-                          : `Reste: ${Number(o.remainingPayment).toLocaleString()} DA`}
+                          ? `Encaissé à la livraison: ${(Number(o.totalPrice) - Number(o.advancePayment || 0)).toLocaleString()} DA ✓` 
+                          : `Reste à payer: ${Number(o.remainingPayment).toLocaleString()} DA`}
                       </div>
                     </>
                   )}
