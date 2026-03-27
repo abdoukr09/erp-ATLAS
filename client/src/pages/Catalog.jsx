@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Pencil, Trash2, Search, Book, Settings, Layers, Box } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Book, Settings, Layers } from 'lucide-react';
 
 export default function Catalog() {
   const { hasRole } = useAuth();
@@ -12,11 +12,9 @@ export default function Catalog() {
   const [showModelModal, setShowModelModal] = useState(false);
   const [showBomModal, setShowBomModal] = useState(false);
   const [showPackModal, setShowPackModal] = useState(false);
-  const [showStockModal, setShowStockModal] = useState(false);
   const [editingModel, setEditingModel] = useState(null);
   const [activeModel, setActiveModel] = useState(null);
   const [modelForm, setModelForm] = useState({ name: '', category: 'Sofa', description: '', basePrice: '', isPack: false });
-  const [stockForm, setStockForm] = useState({ quantity: '' });
   const [bomEntries, setBomEntries] = useState([]);
   const [packEntries, setPackEntries] = useState([]);
   const [bomSearch, setBomSearch] = useState('');
@@ -95,21 +93,6 @@ export default function Catalog() {
       quantity: item.quantity
     })) || []);
     setShowPackModal(true);
-  };
-
-  const openStockModal = (model) => {
-    setActiveModel(model);
-    setStockForm({ quantity: '' });
-    setShowStockModal(true);
-  };
-
-  const handleStockSubmit = async () => {
-    if (!stockForm.quantity) return;
-    try {
-      await api.put(`/product-models/${activeModel.id}/stock`, { quantityToAdd: parseInt(stockForm.quantity) });
-      setShowStockModal(false);
-      fetchModels();
-    } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
   const handleBomSubmit = async () => {
@@ -235,12 +218,9 @@ export default function Catalog() {
                   </span>
                 </td>
                 <td style={{textAlign:'center'}}>
-                  <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:8}}>
-                    <span className={`badge ${m.stock > 0 ? 'badge-delivered' : 'badge-pending'}`} style={{fontSize:'1.1em', fontWeight:700}}>
-                      {m.stock || 0}
-                    </span>
-                    {canManage && <button className="btn-icon edit" onClick={() => openStockModal(m)} title="Ajuster le stock manuellement"><Box size={14} /></button>}
-                  </div>
+                  <span className={`badge ${m.stock > 0 ? 'badge-delivered' : 'badge-pending'}`} style={{fontSize:'1.1em', fontWeight:700}}>
+                    {m.stock || 0}
+                  </span>
                 </td>
                 <td style={{fontWeight:700}}>{Number(m.basePrice).toLocaleString()} DA</td>
                 {canManage && (
@@ -361,18 +341,6 @@ export default function Catalog() {
             <button type="button" className="btn btn-ghost" style={{width:'100%', marginTop:8}} onClick={addPackRow}>
               <Plus size={14} /> Ajouter un produit au pack
             </button>
-          </div>
-        </Modal>
-      )}
-
-      {showStockModal && activeModel && (
-        <Modal title={`Ajuster Stock (${activeModel.name})`} onClose={() => setShowStockModal(false)} onSubmit={handleStockSubmit}>
-          <div className="form-group">
-            <label>Quantité à ajouter / retirer</label>
-            <input className="form-control" type="number" placeholder="ex: 5 (ajouter) ou -2 (retirer)" value={stockForm.quantity} onChange={e => setStockForm({quantity: e.target.value})} required />
-            <p style={{fontSize: 13, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.4}}>
-              ℹ️ Cette action ajoute ou retire <strong>directement</strong> le produit fini au stock <strong>sans déduire aucune matière première</strong>. Utile pour les retours, annulations, ou ajustements manuels.
-            </p>
           </div>
         </Modal>
       )}
