@@ -211,7 +211,12 @@ export default function Orders() {
                   {o.items && o.items.length > 0 ? (
                     <ul style={{margin: 0, paddingLeft: '15px', fontSize: '0.85em'}}>
                       {o.items.map((item, idx) => (
-                        <li key={idx}><span style={{fontWeight:600}}>{item.sofaModel}</span></li>
+                        <li key={idx} style={{marginBottom: '4px'}}>
+                          <span style={{fontWeight:600}}>{item.sofaModel}</span>
+                          <span style={{marginLeft: '6px', fontSize: '0.9em', fontWeight: 500, color: item.status === 'ready' ? 'var(--accent-green)' : (item.status === 'in_production' ? 'var(--accent-blue)' : 'var(--text-muted)')}}>
+                            ({statusLabels[item.status] || item.status})
+                          </span>
+                        </li>
                       ))}
                     </ul>
                   ) : <span style={{color: 'var(--text-muted)'}}>{o.sofaModel || '—'}</span>}

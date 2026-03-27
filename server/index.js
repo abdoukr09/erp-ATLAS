@@ -32,7 +32,8 @@ app.set('trust proxy', 1);
 const allowedOrigins = [
   'http://localhost:5173', 
   'http://127.0.0.1:5173',
-  'http://localhost:5001'
+  'http://localhost:5001',
+  'http://172.20.10.2:5173'
 ];
 if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
 
@@ -126,8 +127,8 @@ const PORT = process.env.PORT || 5000;
 
 sequelize.sync().then(() => {
   console.log('✅ Database synced');
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
     console.log(`🔒 Security: Helmet ✅ | Rate Limiting ✅ | Input Validation ✅ | Safe Errors ✅`);
   });
 }).catch(err => {

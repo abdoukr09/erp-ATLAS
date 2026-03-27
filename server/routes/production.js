@@ -102,6 +102,11 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
       if (item) {
         if (item.status === 'pending') {
           await item.update({ status: 'in_production' }, { transaction: t });
+          const { Order } = require('../models');
+          const parentOrder = await Order.findByPk(item.orderId, { transaction: t });
+          if (parentOrder && parentOrder.status === 'pending') {
+             await parentOrder.update({ status: 'in_production' }, { transaction: t });
+          }
         }
         basePrice = item.unitPrice; 
         finalQuantity = item.quantity;
