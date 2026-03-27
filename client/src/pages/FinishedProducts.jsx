@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
-import { Search, PackageCheck } from 'lucide-react';
+import Modal from '../components/Modal';
+import { useAuth } from '../context/AuthContext';
+import { Search, PackageCheck, Box } from 'lucide-react';
 
 export default function FinishedProducts() {
+  const { hasRole } = useAuth();
+  const canManage = hasRole('admin', 'gerant', 'production');
   const [orders, setOrders] = useState([]);
   const [productModels, setProductModels] = useState([]);
   const [search, setSearch] = useState('');
+  
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [activeModel, setActiveModel] = useState(null);
+  const [stockForm, setStockForm] = useState({ quantity: '' });
 
   useEffect(() => { fetchData(); }, []);
 
@@ -23,6 +31,21 @@ export default function FinishedProducts() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const openStockModal = (model) => {
+    setActiveModel(model);
+    setStockForm({ quantity: '' });
+    setShowStockModal(true);
+  };
+
+  const handleStockSubmit = async () => {
+    if (!stockForm.quantity) return;
+    try {
+      await api.put(`/product-models/${activeModel.id}/stock`, { quantityToAdd: parseInt(stockForm.quantity) });
+      setShowStockModal(false);
+      fetchData();
+    } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
   const filteredOrders = orders.filter(o =>
@@ -117,7 +140,12 @@ export default function FinishedProducts() {
               <tr key={m.id}>
                 <td style={{ fontWeight: 600 }}>{m.name}</td>
                 <td>{m.category || '—'}</td>
-                <td><span className={`badge ${m.stock > 0 ? 'badge-delivered' : 'badge-pending'}`} style={{ fontSize: '1.05rem' }}>{m.stock || 0}</span></td>
+                <td>
+                  <div style={{display:'flex', alignItems:'center', gap:8}}>
+                    <span className={`badge ${m.stock > 0 ? 'badge-delivered' : 'badge-pending'}`} style={{ fontSize: '1.05rem' }}>{m.stock || 0}</span>
+                    {canManage && <button className="btn-icon edit" onClick={() => openStockModal(m)} title="Ajuster le stock manuellement"><Box size={14} /></button>}
+                  </div>
+                </td>
                 <td>
                   {m.maxProducible > 0 ? (
                     <span className="badge badge-delivered" style={{background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e', fontSize: '0.92em'}}>
@@ -139,6 +167,18 @@ export default function FinishedProducts() {
           </tbody>
         </table>
       </div>
+
+      {showStockModal && activeModel && (
+        <Modal title={`Ajuster Stock (${activeModel.name})`} onClose={() => setShowStockModal(false)} onSubmit={handleStockSubmit}>
+          <div className="form-group">
+            <label>Quantité à ajouter / retirer</label>
+            <input className="form-control" type="number" placeholder="ex: 5 (ajouter) ou -2 (retirer)" value={stockForm.quantity} onChange={e => setStockForm({quantity: e.target.value})} required />
+            <p style={{fontSize: 13, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.4}}>
+              ℹ️ Cette action ajoute ou retire <strong>directement</strong> le produit fini au stock <strong>sans déduire aucune matière première</strong>. Utile pour les retours, annulations, ou ajustements manuels.
+            </p>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
