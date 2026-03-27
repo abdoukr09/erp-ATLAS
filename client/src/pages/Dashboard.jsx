@@ -242,7 +242,7 @@ export default function Dashboard() {
               <th>Modèle</th>
               <th>Total</th>
               <th>Avance</th>
-              <th>Paiement Final</th>
+              <th>Paiement Final / Reste</th>
               <th>Statut Paiement</th>
               <th>Statut</th>
               <th>Date</th>
@@ -264,7 +264,11 @@ export default function Dashboard() {
                 </td>
                 <td>{Number(order.totalPrice).toLocaleString()} DA</td>
                 <td style={{color: '#3b82f6', fontWeight: 600}}>{Number(order.advancePayment || 0).toLocaleString()} DA</td>
-                <td style={{color: '#22c55e', fontWeight: 600}}>{Number(order.remainingPayment || 0).toLocaleString()} DA</td>
+                <td style={{color: order.paymentStatus === 'fully_paid' ? '#22c55e' : '#ef4444', fontWeight: 600}}>
+                  {order.paymentStatus === 'fully_paid' 
+                    ? `${(Number(order.totalPrice) - Number(order.advancePayment || 0)).toLocaleString()} DA ✓`
+                    : `${Number(order.remainingPayment || 0).toLocaleString()} DA (Reste)`}
+                </td>
                 <td>
                   <span className={`badge badge-${order.paymentStatus === 'fully_paid' ? 'delivered' : order.paymentStatus === 'advance_paid' ? 'in_production' : 'pending'}`}>
                     {paymentStatusLabels[order.paymentStatus] || order.paymentStatus || 'Non payé'}
