@@ -5,8 +5,8 @@ const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 const router = express.Router();
 
-// GET /api/dashboard/stats - Management only
-router.get('/stats', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+// GET /api/dashboard/stats - Management and Sales (Sales sees scrubbed data)
+router.get('/stats', authenticate, authorize('admin', 'gerant', 'sales'), async (req, res) => {
   try {
     const totalOrders = await Order.count();
     const pendingOrders = await Order.count({ where: { status: 'pending' } });
@@ -123,6 +123,8 @@ router.get('/stats', authenticate, authorize('admin', 'gerant'), async (req, res
       raw: true,
     });
 
+    const isSales = req.user.role === 'sales';
+
     res.json({
       stats: {
         totalOrders,
@@ -131,19 +133,19 @@ router.get('/stats', authenticate, authorize('admin', 'gerant'), async (req, res
         readyOrders,
         deliveredOrders,
         totalCustomers,
-        totalRevenue: Number(totalRevenue),
-        totalAdvancePayments: Number(totalAdvancePayments),
-        totalFinalPayments: Number(totalFinalPayments),
-        todayRevenue: Number(todayRevenue),
+        totalRevenue: isSales ? 0 : Number(totalRevenue),
+        totalAdvancePayments: isSales ? 0 : Number(totalAdvancePayments),
+        totalFinalPayments: isSales ? 0 : Number(totalFinalPayments),
+        todayRevenue: isSales ? 0 : Number(todayRevenue),
         lowStockCount: lowStockMaterials.length,
         activeProductions,
         pendingDeliveries,
       },
-      lowStockMaterials,
+      lowStockMaterials: isSales ? [] : lowStockMaterials,
       activeProductionDetails,
-      recentOrders,
-      monthlyRevenue,
-      monthlyRevenueByType,
+      recentOrders, // Sales can see recent individual orders (as they create them)
+      monthlyRevenue: isSales ? [] : monthlyRevenue,
+      monthlyRevenueByType: isSales ? [] : monthlyRevenueByType,
       orderStatusDistribution,
     });
   } catch (error) {
