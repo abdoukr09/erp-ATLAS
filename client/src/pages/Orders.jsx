@@ -400,12 +400,10 @@ export default function Orders() {
             {productModels.map(m => <option key={m.id} value={m.name} />)}
           </datalist>
 
-          {!editing && (
-            <div className="form-group" style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'15px'}}>
-              <input type="checkbox" id="useStock" checked={form.useStock} onChange={e => setForm({...form, useStock: e.target.checked})} />
-              <label htmlFor="useStock" style={{marginBottom:0, cursor:'pointer'}}>Prendre du stock disponible (si disponible)</label>
-            </div>
-          )}
+          <div className="form-group" style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'15px'}}>
+            <input type="checkbox" id="useStock" checked={form.useStock} onChange={e => setForm({...form, useStock: e.target.checked})} />
+            <label htmlFor="useStock" style={{marginBottom:0, cursor:'pointer'}}>Prendre du stock de modèles disponibles (si disponible)</label>
+          </div>
           
  <div></div> 
           

@@ -105,20 +105,40 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), writeLimit
        }, { transaction: t });
     }
 
-    // ── Material Reservation: lock materials, check availability, reserve ──
+    // ── Material Reservation & Stock Deduction ────────────────────────────
     const reservationWarnings = [];
     for (const item of items) {
+      const dbItem = await OrderItem.findOne({ 
+        where: { orderId: order.id, sofaModel: item.sofaModel, status: 'pending' },
+        transaction: t 
+      });
+      if (!dbItem) continue;
+
       const model = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
       if (!model) continue;
+
+      // ATOMIC STOCK FILL: Check if we can take from finished stock first
+      if (useStock && Number(model.stock) >= Number(item.quantity || 1)) {
+        await model.update({ stock: Number(model.stock) - Number(item.quantity || 1) }, { transaction: t });
+        await dbItem.update({ status: 'ready' }, { transaction: t });
+        // Create a dummy completed production record for tracking
+        await Production.create({
+          orderId: order.id,
+          orderItemId: dbItem.id,
+          productModelId: model.id,
+          status: 'completed',
+          notes: 'Fidélisation automatique via stock prêt.',
+          completionDate: new Date()
+        }, { transaction: t });
+        continue; // Skip material reservation for this item
+      }
 
       const bomEntries = await ModelMaterial.findAll({ where: { modelId: model.id }, transaction: t });
       for (const bom of bomEntries) {
         const qty = (item.quantity || 1) * Number(bom.quantity);
-        // Lock material row to prevent concurrent reads of stale stock
         const material = await Material.findByPk(bom.materialId, { transaction: t, lock: t.LOCK.UPDATE });
         if (!material) continue;
 
-        // Calculate available = physical stock - already reserved by other orders
         const alreadyReserved = await MaterialReservation.sum('quantity', {
           where: { materialId: bom.materialId, status: 'reserved' },
           transaction: t
@@ -280,6 +300,52 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), validate
             splitPercentage: s.splitPercentage || (100 / req.body.salesmen.length)
           }, { transaction: t });
        }
+    }
+
+    // ── Persistent "Take from Stock" logic for Updates ───────────────────
+    if (req.body.useStock === true) {
+      const pendingItems = await OrderItem.findAll({ 
+        where: { orderId: order.id, status: 'pending' },
+        transaction: t 
+      });
+
+      for (const item of pendingItems) {
+        const model = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
+        if (model && Number(model.stock) >= Number(item.quantity)) {
+          // Deduct from finished stock
+          await model.update({ stock: Number(model.stock) - Number(item.quantity) }, { transaction: t });
+          await item.update({ status: 'ready' }, { transaction: t });
+          
+          // Clear material reservations for this order (partial or full)
+          // Since reservations are per-order, we'll recalculate or simply delete 
+          // reservations for the specific materials of THIS model item.
+          const bom = await ModelMaterial.findAll({ where: { modelId: model.id }, transaction: t });
+          for (const entry of bom) {
+             const qtyToDrop = Number(entry.quantity) * Number(item.quantity);
+             const reservation = await MaterialReservation.findOne({
+               where: { orderId: order.id, materialId: entry.materialId, status: 'reserved' },
+               transaction: t
+             });
+             if (reservation) {
+                if (Number(reservation.quantity) <= qtyToDrop) {
+                  await reservation.destroy({ transaction: t });
+                } else {
+                  await reservation.update({ quantity: Number(reservation.quantity) - qtyToDrop }, { transaction: t });
+                }
+             }
+          }
+
+          // Create/ensure completed production record
+          await Production.create({
+            orderId: order.id,
+            orderItemId: item.id,
+            productModelId: model.id,
+            status: 'completed',
+            notes: 'Rempli manuellement via stock lors de la modification.',
+            completionDate: new Date()
+          }, { transaction: t });
+        }
+      }
     }
 
     if (req.body.totalPrice !== undefined) {
