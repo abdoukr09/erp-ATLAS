@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import Modal from '../components/Modal';
-import { Plus, Pencil, Trash2, Search, CreditCard, CalendarDays } from 'lucide-react';
+import { Plus, Pencil, Trash2, CreditCard, CalendarDays } from 'lucide-react';
+import SmartSearch from '../components/SmartSearch';
 import { useAuth } from '../context/AuthContext';
 
 export default function Finance() {
   const { hasRole } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
   const [payments, setPayments] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [search, setSearch] = useState('');
+  const [searchText, setSearchText] = useState(initialSearch);
+  const [activeFilters, setActiveFilters] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ orderId: '', amount: '', method: 'cash', notes: '' });
@@ -47,18 +53,46 @@ export default function Finance() {
   const today = new Date().toISOString().split('T')[0];
   const todayRevenue = payments.filter(p => p.status === 'completed' && p.paymentDate === today).reduce((sum, p) => sum + Number(p.amount), 0);
 
+  const financeFilters = [
+    { key: 'method', label: '💳 Méthode', options: [
+      { value: 'cash', label: 'Espèces', color: '#10b981' },
+      { value: 'bank_transfer', label: 'Virement', color: '#3b82f6' },
+      { value: 'check', label: 'Chèque', color: '#f59e0b' },
+      { value: 'card', label: 'Carte', color: '#8b5cf6' },
+    ]},
+    { key: 'type', label: '🏷️ Type', options: [
+      { value: 'advance', label: 'Avance', color: '#3b82f6' },
+      { value: 'final', label: 'Paiement Final', color: '#22c55e' },
+      { value: 'other', label: 'Autre', color: '#64748b' },
+    ]},
+  ];
+
+  const handleFilterChange = (text, filters) => {
+    setSearchText(text);
+    setActiveFilters(filters);
+  };
+
   const filtered = payments
-    .filter(p =>
-      (p.order?.items && p.order.items.some(i => i.sofaModel?.toLowerCase()?.includes(search.toLowerCase()))) ||
-      p.order?.sofaModel?.toLowerCase()?.includes(search.toLowerCase()) ||
-      p.order?.customer?.name?.toLowerCase()?.includes(search.toLowerCase()) ||
-      p.method?.toLowerCase()?.includes(search.toLowerCase())
-    )
+    .filter(p => {
+      if (activeFilters.method && p.method !== activeFilters.method) return false;
+      if (activeFilters.type && p.type !== activeFilters.type) return false;
+      if (searchText.trim()) {
+        const s = searchText.toLowerCase();
+        if (!(
+          (p.order?.items && p.order.items.some(i => i.sofaModel?.toLowerCase()?.includes(s))) ||
+          p.order?.sofaModel?.toLowerCase()?.includes(s) ||
+          p.order?.customer?.name?.toLowerCase()?.includes(s) ||
+          p.method?.toLowerCase()?.includes(s) ||
+          `#${p.orderId}`.includes(s)
+        )) return false;
+      }
+      return true;
+    })
     .sort((a, b) => {
       const dateA = a.paymentDate || '';
       const dateB = b.paymentDate || '';
       if (dateA !== dateB) return dateB.localeCompare(dateA);
-      return b.id - a.id; // Secondary sort by id
+      return b.id - a.id;
     });
 
   return (
@@ -86,10 +120,12 @@ export default function Finance() {
         <div className="table-header">
           <h2>Paiements ({filtered.length})</h2>
           <div className="table-actions">
-            <div className="search-wrapper">
-              <Search className="search-icon" />
-              <input className="search-input" placeholder="Rechercher des paiements..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+            <SmartSearch
+              filters={financeFilters}
+              onFilterChange={handleFilterChange}
+              placeholder="Rechercher par client, ID commande, description..."
+              initialSearchText={initialSearch}
+            />
             <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ orderId: '', amount: '', method: 'cash', notes: '' }); setShowModal(true); }}>
               <Plus size={16} /> Ajouter Paiement
             </button>
@@ -101,9 +137,14 @@ export default function Finance() {
             {filtered.length > 0 ? filtered.map(p => (
               <tr key={p.id}>
                 <td>#{p.id}</td>
-                <td>
-                  <div style={{fontSize: '0.85em'}}>
-                    #{p.orderId} - {p.order?.items && p.order.items.length > 0 
+                <td 
+                  style={{ color: 'var(--accent-blue)', cursor: 'pointer', fontWeight: 600 }}
+                  onClick={() => p.orderId && navigate(`/orders?search=${p.orderId}`)}
+                  title={p.orderId ? "Voir commande" : ""}
+                >
+                  {p.orderId ? `#${p.orderId}` : '—'}
+                  <div style={{fontSize: '0.85em', color: 'var(--text-muted)'}}>
+                    {p.order?.items && p.order.items.length > 0 
                       ? p.order.items.map(i => i.sofaModel).join(', ') 
                       : p.order?.sofaModel || ''}
                   </div>

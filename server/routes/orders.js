@@ -81,12 +81,13 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), writeLimit
     const finalPrice = req.body.totalPrice !== undefined ? req.body.totalPrice : Math.round(computedTotal);
 
     const advanceAmount = advancePayment || 0;
+    const remainingAmount = Math.max(0, finalPrice - advanceAmount);
     const order = await Order.create({
       customerId,
       totalPrice: finalPrice,
       advancePayment: advanceAmount,
-      remainingPayment: finalPrice - advanceAmount,
-      paymentStatus: advanceAmount >= finalPrice ? 'fully_paid' : (advanceAmount > 0 ? 'advance_paid' : 'unpaid'),
+      remainingPayment: remainingAmount,
+      paymentStatus: remainingAmount <= 0 ? 'fully_paid' : (advanceAmount > 0 ? 'advance_paid' : 'unpaid'),
       deliveryAddress: deliveryAddress || customer.address,
       notes, orderDate: orderDate || new Date(),
       status: 'pending'
@@ -185,6 +186,12 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), writeLimit
       }, { transaction: t });
     }
 
+    // ── Check if Order is fully ready ────────────────────────────────────
+    const allItems = await OrderItem.findAll({ where: { orderId: order.id }, transaction: t });
+    if (allItems.length > 0 && allItems.every(i => i.status === 'ready')) {
+      await order.update({ status: 'ready' }, { transaction: t });
+    }
+
     await t.commit();
     const response = order.toJSON();
     if (reservationWarnings.length > 0) response.reservationWarnings = reservationWarnings;
@@ -252,6 +259,9 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), validate
       await MaterialReservation.destroy({ where: { orderId: order.id, status: 'reserved' }, transaction: t });
     }
 
+    // Save the explicit totalPrice from the frontend (custom price override) BEFORE items processing
+    const explicitTotalPrice = req.body.totalPrice;
+
     // Recalculate Total Price based on sub-items if passed
     if (req.body.items && Array.isArray(req.body.items)) {
       let computedTotal = 0;
@@ -288,7 +298,10 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), validate
           computedTotal += (item.quantity || 1) * (item.unitPrice || 0) * (1 - (item.discountPercentage || 0) / 100);
         }
       }
-      req.body.totalPrice = Math.round(computedTotal);
+      // Use explicit totalPrice from frontend if provided (custom price override), otherwise use computed
+      req.body.totalPrice = (explicitTotalPrice !== undefined && explicitTotalPrice !== null)
+        ? explicitTotalPrice 
+        : Math.round(computedTotal);
     }
 
     if (req.body.salesmen && Array.isArray(req.body.salesmen)) {
@@ -348,9 +361,17 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), validate
       }
     }
 
+    // Changing FROM delivered: remove the automatic final payment
+    if (wasDelivered && !willBeDelivered) {
+      await Payment.destroy({
+        where: { orderId: order.id, type: 'final' },
+        transaction: t
+      });
+    }
+
     if (req.body.totalPrice !== undefined) {
       const totalPaid = await Payment.sum('amount', { where: { orderId: order.id, status: 'completed' }, transaction: t }) || 0;
-      req.body.remainingPayment = req.body.totalPrice - totalPaid;
+      req.body.remainingPayment = Math.max(0, req.body.totalPrice - totalPaid);
       req.body.paymentStatus = req.body.remainingPayment <= 0 ? 'fully_paid' : (totalPaid > 0 ? 'advance_paid' : 'unpaid');
     }
 
@@ -383,6 +404,13 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), validate
     if (req.body.commissionValue !== undefined) req.body.commissionValue = req.body.commissionValue;
 
     await order.update(req.body, { transaction: t });
+
+    // ── Check if Order is fully ready ────────────────────────────────────
+    const allItems = await OrderItem.findAll({ where: { orderId: order.id }, transaction: t });
+    if (allItems.length > 0 && allItems.every(i => i.status === 'ready')) {
+      await order.update({ status: 'ready' }, { transaction: t });
+    }
+
     await t.commit();
     res.json(order);
   } catch (error) {

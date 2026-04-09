@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Pencil, Trash2, Search, Book, Settings, Layers } from 'lucide-react';
+import { Plus, Pencil, Trash2, Book, Settings, Layers } from 'lucide-react';
+import SmartSearch from '../components/SmartSearch';
 
 export default function Catalog() {
   const { hasRole } = useAuth();
   const [models, setModels] = useState([]);
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
   const [materials, setMaterials] = useState([]);
-  const [search, setSearch] = useState('');
+  const [searchText, setSearchText] = useState(initialSearch);
+  const [activeFilters, setActiveFilters] = useState({});
   const [showModelModal, setShowModelModal] = useState(false);
   const [showBomModal, setShowBomModal] = useState(false);
   const [showPackModal, setShowPackModal] = useState(false);
@@ -152,10 +157,30 @@ export default function Catalog() {
     setPackEntries(newEntries);
   };
 
-  const filtered = models.filter(m =>
-    m.name?.toLowerCase()?.includes(search.toLowerCase()) ||
-    m.category?.toLowerCase()?.includes(search.toLowerCase())
-  );
+  const catalogFilters = [
+    { key: 'type', label: '📦 Type', options: [
+      { value: 'simple', label: 'Simple', color: '#f59e0b' },
+      { value: 'pack', label: 'Pack', color: '#3b82f6' },
+    ]},
+  ];
+
+  const handleFilterChange = (text, filters) => {
+    setSearchText(text);
+    setActiveFilters(filters);
+  };
+
+  const filtered = models.filter(m => {
+    if (activeFilters.type === 'pack' && !m.isPack) return false;
+    if (activeFilters.type === 'simple' && m.isPack) return false;
+    if (searchText.trim()) {
+      const s = searchText.toLowerCase();
+      if (!(
+        m.name?.toLowerCase()?.includes(s) ||
+        m.category?.toLowerCase()?.includes(s)
+      )) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="page-transition">
@@ -163,10 +188,12 @@ export default function Catalog() {
         <div className="table-header">
           <h2>Catalogue Produits ({filtered.length})</h2>
           <div className="table-actions">
-            <div className="search-wrapper">
-              <Search className="search-icon" />
-              <input className="search-input" placeholder="Rechercher des modèles..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+            <SmartSearch
+              filters={catalogFilters}
+              onFilterChange={handleFilterChange}
+              placeholder="Rechercher par nom, catégorie, type..."
+              initialSearchText={initialSearch}
+            />
             {canManage && (
               <button className="btn btn-primary" onClick={() => { setEditingModel(null); setModelForm({ name: '', category: 'Sofa', description: '', basePrice: '' }); setShowModelModal(true); }}>
                 <Plus size={16} /> Nouveau Modèle

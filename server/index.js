@@ -30,7 +30,7 @@ app.set('trust proxy', 1);
 // ─── TASK 7: Advanced CORS Hardening ──────────────────────────────────────────
 // Only allow requests from the exact frontend origin. Blocks CSRF from hacker.com
 const allowedOrigins = [
-  'http://localhost:5173', 
+  'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:5001',
   'http://172.20.10.2:5173'
@@ -63,7 +63,7 @@ app.use(helmet({
       upgradeInsecureRequests: [],
     },
   },
-  crossOriginEmbedderPolicy: false, 
+  crossOriginEmbedderPolicy: false,
   hsts: process.env.NODE_ENV === 'production' ? {
     maxAge: 31536000, // 1 year strict transport security (force HTTPS)
     includeSubDomains: true,
@@ -112,6 +112,8 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/product-models', require('./routes/productModels'));
 app.use('/api/tariffs', require('./routes/tariffs'));
 app.use('/api/employees', require('./routes/employees'));
+app.use('/api/worker-types', require('./routes/workerTypes'));
+app.use('/api/reports', require('./routes/reports'));
 
 // Health check (not rate-limited — internal probes need this)
 app.get('/api/health', (req, res) => {
@@ -125,8 +127,8 @@ app.use(errorHandler);
 // ─── Start Server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
-sequelize.sync().then(() => {
-  console.log('✅ Database synced');
+sequelize.sync({ alter: true }).then(() => {
+  console.log('✅ Database synced (Altered)');
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
     console.log(`🔒 Security: Helmet ✅ | Rate Limiting ✅ | Input Validation ✅ | Safe Errors ✅`);

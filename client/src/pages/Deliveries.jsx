@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
 import Modal from '../components/Modal';
-import { Plus, Pencil, Trash2, Search, Truck, CheckCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Truck, CheckCircle } from 'lucide-react';
+import SmartSearch from '../components/SmartSearch';
 
 export default function Deliveries() {
   const [deliveries, setDeliveries] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [search, setSearch] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [activeFilters, setActiveFilters] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ orderId: '', driver: '', deliveryDate: '', address: '', status: 'scheduled', notes: '' });
@@ -75,23 +77,44 @@ export default function Deliveries() {
     }
   };
 
-  const filtered = deliveries.filter(d =>
-    d.driver?.toLowerCase()?.includes(search.toLowerCase()) ||
-    d.status?.toLowerCase()?.includes(search.toLowerCase()) ||
-    d.order?.sofaModel?.toLowerCase()?.includes(search.toLowerCase()) ||
-    (d.order?.items && d.order.items.some(i => i.sofaModel?.toLowerCase()?.includes(search.toLowerCase())))
-  );
+  const deliveryFilters = [
+    { key: 'status', label: '🚚 Statut', options: [
+      { value: 'scheduled', label: 'Planifié', color: '#f59e0b' },
+      { value: 'in_transit', label: 'En route', color: '#3b82f6' },
+      { value: 'delivered', label: 'Livré', color: '#22c55e' },
+      { value: 'cancelled', label: 'Annulé', color: '#ef4444' },
+    ]},
+  ];
 
+  const handleFilterChange = (text, filters) => {
+    setSearchText(text);
+    setActiveFilters(filters);
+  };
+
+  const filtered = deliveries.filter(d => {
+    if (activeFilters.status && d.status !== activeFilters.status) return false;
+    if (searchText.trim()) {
+      const s = searchText.toLowerCase();
+      if (!(
+        d.driver?.toLowerCase()?.includes(s) ||
+        d.status?.toLowerCase()?.includes(s) ||
+        d.order?.sofaModel?.toLowerCase()?.includes(s) ||
+        (d.order?.items && d.order.items.some(i => i.sofaModel?.toLowerCase()?.includes(s)))
+      )) return false;
+    }
+    return true;
+  });
   return (
     <div className="page-transition">
       <div className="table-container">
         <div className="table-header">
           <h2>Livraisons ({filtered.length})</h2>
           <div className="table-actions">
-            <div className="search-wrapper">
-              <Search className="search-icon" />
-              <input className="search-input" placeholder="Rechercher une livraison..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+            <SmartSearch
+              filters={deliveryFilters}
+              onFilterChange={handleFilterChange}
+              placeholder="Rechercher par chauffeur, modèle..."
+            />
             <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ orderId: '', driver: '', deliveryDate: '', address: '', status: 'scheduled', notes: '' }); setShowModal(true); }}>
               <Plus size={16} /> Planifier Livraison
             </button>

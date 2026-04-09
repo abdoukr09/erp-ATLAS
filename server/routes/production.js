@@ -1,5 +1,5 @@
 const express = require('express');
-const { Production, Order, Customer, ProductModel, OrderItem, ProductionWorker, Employee, MaterialReservation } = require('../models');
+const { Production, Order, Customer, ProductModel, OrderItem, ProductionWorker, Employee, MaterialReservation, WorkerType, WorkerTypeTariff } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
 const sequelize = require('../config/database');
 const router = express.Router();
@@ -70,12 +70,16 @@ router.get('/', authenticate, authorize('admin', 'production', 'gerant'), async 
       include: [
         { model: OrderItem, as: 'orderItem', attributes: ['id', 'sofaModel', 'quantity', 'status'], include: [{ model: Order, as: 'order', attributes: ['id', 'status'], include: [{ model: Customer, as: 'customer', attributes: ['name'] }] }] },
         { model: ProductModel, as: 'productModel', attributes: ['id', 'name'] },
-        { model: ProductionWorker, as: 'workerAssignments', include: [{ model: Employee, as: 'worker', attributes: ['id', 'name'] }] }
+        { model: ProductionWorker, as: 'workerAssignments', include: [
+          { model: Employee, as: 'worker', attributes: ['id', 'name'] },
+          { model: WorkerType, as: 'workerType', attributes: ['id', 'name'], required: false }
+        ] }
       ],
       order: [['createdAt', 'DESC']],
     });
     res.json(productions);
   } catch (error) {
+    console.error('GET /api/production error:', error);
     res.status(500).json({ error: 'Server error.' });
   }
 });
@@ -85,8 +89,19 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
   const t = await Production.sequelize.transaction();
   try {
     let { orderItemId, productModelId, notes, startDate, tasks, quantity } = req.body;
+    
+    // Improved Case-Insensitive Date Sanitation
+    const sanitizeDate = (d) => {
+      if (!d || d === '' || (typeof d === 'string' && d.toLowerCase() === 'invalid date')) return null;
+      const dateObj = new Date(d);
+      if (isNaN(dateObj.getTime())) return null;
+      return dateObj.toISOString().split('T')[0];
+    };
+
     if (orderItemId === '') orderItemId = null;
     if (productModelId === '') productModelId = null;
+    startDate = sanitizeDate(startDate);
+
     if (!orderItemId && !productModelId) {
       await t.rollback();
       return res.status(400).json({ error: 'Order Item ID or Product Model ID is required.' });
@@ -137,7 +152,8 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
        stage: assignments[0]?.stage || 'fabrication', // Use first stage as fallback
        worker: assignments.map(a => a.workerName || a.worker || '').filter(Boolean).join(', '), // Comma-separated names for backwards-compat!
        notes,
-       startDate: startDate || new Date(),
+       startDate: finalStartDate || new Date(),
+       startTime: req.body.startTime || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
        status: 'pending',
        materialsDeducted: false,
        basePrice: basePrice,
@@ -150,21 +166,42 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
        let commissionType = task.commissionType;
        let commissionValue = task.commissionValue;
        const workerId = task.completedById || task.workerId;
+       const workerTypeId = task.workerTypeId || null;
        
-       if (workerId && (!commissionValue || commissionValue === 0)) {
-          const { Employee } = require('../models');
-          const emp = await Employee.findByPk(workerId, { transaction: t });
-          if (emp) {
-            commissionType = 'percentage';
-            commissionValue = Number(emp.commissionRate || 0);
+       // Auto-lookup tariff from WorkerTypeTariff if workerTypeId and productModelId are available
+       if (workerTypeId && (!commissionValue || commissionValue === 0)) {
+          // Determine the product model ID for tariff lookup
+          let tariffProductModelId = task.componentModelId || productModelId;
+          if (!tariffProductModelId && orderItemId) {
+            const item = await OrderItem.findByPk(orderItemId, { transaction: t });
+            if (item) {
+              const pm = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
+              if (pm) tariffProductModelId = pm.id;
+            }
+          }
+          
+          if (tariffProductModelId) {
+            const tariff = await WorkerTypeTariff.findOne({
+              where: { workerTypeId, productModelId: tariffProductModelId },
+              transaction: t
+            });
+            if (tariff) {
+              commissionType = tariff.paymentType;
+              commissionValue = Number(tariff.amount || 0);
+            }
           }
        }
+       
+       // No more fallback to old employee commissionRate — tariffs are the source of truth
 
        if (workerId) {
          await ProductionWorker.create({
             productionId: production.id,
             workerId: workerId,
-            commissionType: commissionType || 'percentage',
+            workerTypeId: workerTypeId,
+            componentModelId: task.componentModelId || null,
+            componentIndex: task.componentIndex !== undefined ? task.componentIndex : (task._compIdx !== undefined ? task._compIdx : 0),
+            commissionType: commissionType || 'fixed',
             commissionValue: commissionValue || 0
          }, { transaction: t });
        }
@@ -182,8 +219,21 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
 router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), async (req, res) => {
   const t = await sequelize.transaction();
   try {
+    // Improved Case-Insensitive Date Sanitation
+    const sanitizeDate = (d) => {
+      if (!d || d === '' || (typeof d === 'string' && d.toLowerCase() === 'invalid date')) return null;
+      const dateObj = new Date(d);
+      if (isNaN(dateObj.getTime())) return null;
+      return dateObj.toISOString().split('T')[0];
+    };
+
     if (req.body.orderId === '') req.body.orderId = null;
     if (req.body.productModelId === '') req.body.productModelId = null;
+    
+    req.body.startDate = sanitizeDate(req.body.startDate);
+    req.body.endDate = sanitizeDate(req.body.endDate);
+    req.body.completionDate = sanitizeDate(req.body.completionDate);
+
     const production = await Production.findByPk(req.params.id, {
       transaction: t,
       lock: t.LOCK.UPDATE
@@ -263,9 +313,55 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
       }
       req.body.endDate = new Date();
       req.body.completionDate = new Date();
+      if (!req.body.endTime) {
+        req.body.endTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      }
       if(req.body.completedById === '') req.body.completedById = null;
     }
 
+    // Allow updating worker assignments if provided (especially for pending tasks)
+    if (req.body.tasks && Array.isArray(req.body.tasks)) {
+      await ProductionWorker.destroy({ where: { productionId: production.id }, transaction: t });
+      for (const task of req.body.tasks) {
+        let commissionType = task.commissionType;
+        let commissionValue = task.commissionValue;
+        const workerId = task.completedById || task.workerId;
+        const workerTypeId = task.workerTypeId || null;
+        
+        // Auto-lookup tariff if commission is zero
+        if (workerTypeId && (!commissionValue || commissionValue === 0)) {
+           let tariffProductModelId = task.componentModelId || production.productModelId;
+           if (!tariffProductModelId && production.orderItem) {
+               const pm = await ProductModel.findOne({ where: { name: production.orderItem.sofaModel }, transaction: t });
+               if (pm) tariffProductModelId = pm.id;
+           }
+           if (tariffProductModelId) {
+             const tariff = await WorkerTypeTariff.findOne({
+               where: { workerTypeId, productModelId: tariffProductModelId },
+               transaction: t
+             });
+             if (tariff) {
+               commissionType = tariff.paymentType;
+               commissionValue = Number(tariff.amount || 0);
+             }
+           }
+        }
+        
+        if (workerId) {
+          await ProductionWorker.create({
+             productionId: production.id,
+             workerId: workerId,
+             workerTypeId: workerTypeId,
+             componentModelId: task.componentModelId || null,
+             componentIndex: task.componentIndex !== undefined ? task.componentIndex : (task._compIdx !== undefined ? task._compIdx : 0),
+             commissionType: commissionType || 'fixed',
+             commissionValue: commissionValue || 0
+          }, { transaction: t });
+        }
+      }
+    }
+
+    console.log('--- REQ.BODY FOR PROD UPDATE ---', JSON.stringify(req.body, null, 2));
     await production.update(req.body, { transaction: t });
     await t.commit();
     res.json(production);
@@ -293,16 +389,30 @@ const revertMaterials = async (orderItemId, productModelId, targetQuantity, t) =
 
   if (!targetModel) return;
 
-  const model = await ProductModel.findByPk(targetModel.id, {
-    include: [{ model: Material, as: 'materials' }],
-    transaction: t
-  });
+  const materialMap = new Map();
 
-  if (model && model.materials) {
-    for (const material of model.materials) {
-      const requiredQty = material.ModelMaterial.quantity * targetQuantity;
-      const lockedMat = await Material.findByPk(material.id, { transaction: t, lock: t.LOCK.UPDATE });
-      if (lockedMat) await lockedMat.update({ stock: Number(lockedMat.stock) + requiredQty }, { transaction: t });
+  const collect = async (modelId, multiplier) => {
+    const model = await ProductModel.findByPk(modelId, {
+      include: [{ model: Material, as: 'materials' }],
+      transaction: t
+    });
+    if (!model) return;
+    if (model.materials && model.materials.length > 0) {
+      for (const material of model.materials) {
+        const requiredQty = material.ModelMaterial.quantity * multiplier;
+        materialMap.set(material.id, (materialMap.get(material.id) || 0) + requiredQty);
+      }
+    }
+  };
+
+  await collect(targetModel.id, targetQuantity);
+
+  if (materialMap.size > 0) {
+    for (const [materialId, totalToReturn] of materialMap.entries()) {
+      const material = await Material.findByPk(materialId, { transaction: t, lock: t.LOCK.UPDATE });
+      if (material) {
+        await material.update({ stock: Number(material.stock || 0) + totalToReturn }, { transaction: t });
+      }
     }
   }
 };
@@ -320,11 +430,19 @@ router.delete('/:id', authenticate, authorize('admin', 'production', 'gerant'), 
       return res.status(404).json({ error: 'Production record not found.' });
     }
 
-    // If materials were deducted, revert them
+    // If materials were deducted, revert them (return to raw materials stock)
     if (production.materialsDeducted) {
       let qty = 1;
       if (production.orderItem) qty = production.orderItem.quantity;
       await revertMaterials(production.orderItemId, production.productModelId, qty, t);
+    }
+
+    // If it was a completed STOCK production, we must also remove the finished product from stock
+    if (production.status === 'completed' && !production.orderItem && production.productModelId) {
+      const targetModel = await ProductModel.findByPk(production.productModelId, { transaction: t, lock: t.LOCK.UPDATE });
+      if (targetModel && targetModel.stock > 0) {
+        await targetModel.update({ stock: Number(targetModel.stock) - 1 }, { transaction: t });
+      }
     }
 
     await production.destroy({ transaction: t });

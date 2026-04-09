@@ -15,6 +15,8 @@ import FinishedProducts from './pages/FinishedProducts';
 import UsersPage from './pages/Users';
 import Tariffs from './pages/Tariffs';
 import Employees from './pages/Employees';
+import WorkerTypes from './pages/WorkerTypes';
+import Reports from './pages/Reports';
 import './index.css';
 
 import SessionManager from './components/SessionManager';
@@ -36,7 +38,9 @@ function AppRoutes() {
       <Route path="/deliveries" element={<ProtectedRoute roles={['admin', 'delivery']}><Deliveries /></ProtectedRoute>} />
       <Route path="/finance" element={<ProtectedRoute roles={['admin', 'sales', 'gerant']}><Finance /></ProtectedRoute>} />
       <Route path="/tariffs" element={<ProtectedRoute roles={['admin']}><Tariffs /></ProtectedRoute>} />
-      <Route path="/employees" element={<ProtectedRoute roles={['admin', 'gerant']}><Employees /></ProtectedRoute>} />
+      <Route path="/employees" element={<ProtectedRoute roles={['admin', 'gerant', 'production']}><Employees /></ProtectedRoute>} />
+      <Route path="/worker-types" element={<ProtectedRoute roles={['admin']}><WorkerTypes /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute roles={['admin']}><Reports /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute roles={['admin']}><UsersPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

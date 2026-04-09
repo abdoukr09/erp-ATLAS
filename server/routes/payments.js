@@ -32,12 +32,19 @@ const syncOrderPayment = async (orderId, t) => {
   if (!order) return;
 
   const totalPaid = await Payment.sum('amount', { where: { orderId, status: 'completed' }, transaction: t }) || 0;
-  const remaining = Number(order.totalPrice) - totalPaid;
+  const finalPaid = await Payment.sum('amount', { where: { orderId, status: 'completed', type: 'final' }, transaction: t }) || 0;
+  const advancePaid = Math.max(0, totalPaid - finalPaid);
+  
+  const remaining = Math.max(0, Number(order.totalPrice) - totalPaid);
   let status = 'unpaid';
   if (remaining <= 0) status = 'fully_paid';
   else if (totalPaid > 0) status = 'advance_paid';
 
-  await order.update({ remainingPayment: remaining, paymentStatus: status }, { transaction: t });
+  await order.update({ 
+    advancePayment: advancePaid,
+    remainingPayment: remaining, 
+    paymentStatus: status 
+  }, { transaction: t });
 };
 
 // POST /api/payments — Rate limited + validated

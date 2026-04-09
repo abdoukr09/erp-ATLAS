@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Pencil, Trash2, Search, ShoppingCart } from 'lucide-react';
+import { Plus, Pencil, Trash2, ShoppingCart } from 'lucide-react';
+import SmartSearch from '../components/SmartSearch';
 
 export default function Orders() {
   const { user } = useAuth();
@@ -10,7 +12,10 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [productModels, setProductModels] = useState([]);
-  const [search, setSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
+  const [searchText, setSearchText] = useState(initialSearch);
+  const [activeFilters, setActiveFilters] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [customTotal, setCustomTotal] = useState('');
@@ -157,12 +162,20 @@ export default function Orders() {
     try { await api.delete(`/orders/${id}`); fetchOrders(); } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
-  const filtered = orders.filter(o =>
-    (o.items && o.items.some(i => i.sofaModel?.toLowerCase()?.includes(search.toLowerCase()))) ||
-    o.sofaModel?.toLowerCase()?.includes(search.toLowerCase()) ||
-    o.customer?.name?.toLowerCase()?.includes(search.toLowerCase()) ||
-    o.status?.toLowerCase()?.includes(search.toLowerCase())
-  );
+  const orderFilters = [
+    { key: 'status', label: '📋 Statut', options: [
+      { value: 'pending', label: 'En attente', color: '#f59e0b' },
+      { value: 'in_production', label: 'En fabrication', color: '#3b82f6' },
+      { value: 'ready', label: 'Prêt', color: '#10b981' },
+      { value: 'delivered', label: 'Livré', color: '#22c55e' },
+      { value: 'cancelled', label: 'Annulé', color: '#ef4444' },
+    ]},
+    { key: 'paymentStatus', label: '💰 Paiement', options: [
+      { value: 'unpaid', label: 'Non payé', color: '#ef4444' },
+      { value: 'advance_paid', label: 'Avance versée', color: '#f59e0b' },
+      { value: 'fully_paid', label: 'Payé', color: '#10b981' },
+    ]},
+  ];
 
   const statusLabels = {
     pending: 'En attente',
@@ -172,16 +185,43 @@ export default function Orders() {
     cancelled: 'Annulé'
   };
 
+  const handleFilterChange = (text, filters) => {
+    setSearchText(text);
+    setActiveFilters(filters);
+  };
+
+  const filtered = orders.filter(o => {
+    // Apply active filters (AND logic)
+    if (activeFilters.status && o.status !== activeFilters.status) return false;
+    if (activeFilters.paymentStatus && o.paymentStatus !== activeFilters.paymentStatus) return false;
+
+    // Apply text search
+    if (searchText.trim()) {
+      const s = searchText.toLowerCase();
+      const matchModel = o.items?.some(i => i.sofaModel?.toLowerCase()?.includes(s));
+      const matchClient = o.customer?.name?.toLowerCase()?.includes(s);
+      const matchAddress = o.deliveryAddress?.toLowerCase()?.includes(s) || o.customer?.address?.toLowerCase()?.includes(s);
+      const matchId = `#${o.id}`.includes(s) || String(o.id).includes(s);
+      const matchStatus = statusLabels[o.status]?.toLowerCase()?.includes(s);
+      if (!matchModel && !matchClient && !matchAddress && !matchId && !matchStatus) return false;
+    }
+    return true;
+  });
+
+
+
   return (
     <div className="page-transition">
       <div className="table-container">
         <div className="table-header">
           <h2>Commandes ({filtered.length})</h2>
           <div className="table-actions">
-            <div className="search-wrapper">
-              <Search className="search-icon" />
-              <input className="search-input" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+            <SmartSearch
+              filters={orderFilters}
+              onFilterChange={handleFilterChange}
+              placeholder="Rechercher par client, modèle, adresse, #ID..."
+              initialSearchText={initialSearch}
+            />
             {!isProduction && (
               <button className="btn btn-primary" onClick={() => { setEditing(null); setCustomerSearch(''); setForm({ customerId: '', items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], salesmen: [], discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', notes: '', status: 'pending', useStock: false }); setShowModal(true); }}>
                 <Plus size={16} /> Nouvelle Commande
@@ -246,7 +286,9 @@ export default function Orders() {
                       </div>
                       <div style={{fontSize:'0.85em', fontWeight:600, color: (Number(o.remainingPayment) <= 0 || o.paymentStatus === 'fully_paid') ? 'var(--accent-green)' : 'var(--accent-red)'}}>
                         {(Number(o.remainingPayment) <= 0 || o.paymentStatus === 'fully_paid') 
-                          ? `Encaissé à la livraison: ${(Number(o.totalPrice) - Number(o.advancePayment || 0)).toLocaleString()} DA ✓` 
+                          ? (Number(o.totalPrice) - Number(o.advancePayment || 0) <= 0 
+                              ? `Payé Totalement (Avance 100%) ✓` 
+                              : `Encaissé à la livraison: ${(Number(o.totalPrice) - Number(o.advancePayment || 0)).toLocaleString()} DA ✓`)
                           : `Reste à payer: ${Number(o.remainingPayment).toLocaleString()} DA`}
                       </div>
                     </>

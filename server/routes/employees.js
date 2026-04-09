@@ -5,7 +5,7 @@ const { Op } = require('sequelize');
 const router = express.Router();
 
 // GET /api/employees - List all employees with payments (Management only)
-router.get('/', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+router.get('/', authenticate, authorize('admin', 'gerant', 'production'), async (req, res) => {
   try {
     const employees = await Employee.findAll({
       include: [{ model: EmployeePayment, as: 'payments', attributes: ['id', 'amount', 'date', 'description'] }],
@@ -19,7 +19,7 @@ router.get('/', authenticate, authorize('admin', 'gerant'), async (req, res) => 
 });
 
 // GET /api/employees/:id/performance - Performance metrics (Management only)
-router.get('/:id/performance', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+router.get('/:id/performance', authenticate, authorize('admin', 'gerant', 'production'), async (req, res) => {
   try {
     const { month } = req.query; // Expected: 'YYYY-MM'
     if (!month) return res.status(400).json({ error: 'Month is required.' });
@@ -31,7 +31,7 @@ router.get('/:id/performance', authenticate, authorize('admin', 'gerant'), async
 
     const employeeId = req.params.id;
 
-    const { ProductionWorker } = require('../models');
+    const { ProductionWorker, WorkerType } = require('../models');
 
     const productionWorkers = await ProductionWorker.findAll({
       where: { workerId: employeeId },
@@ -47,13 +47,16 @@ router.get('/:id/performance', authenticate, authorize('admin', 'gerant'), async
             { model: Order, as: 'order', attributes: ['totalPrice'] },
             { model: ProductModel, as: 'productModel', attributes: ['name'] }
           ]
-        }
+        },
+        { model: WorkerType, as: 'workerType', attributes: ['id', 'name'] }
       ]
     });
 
     const productions = productionWorkers.map(pw => {
        const p = pw.production.toJSON();
-       p.commissionValue = pw.commissionValue; // Custom individual commission inside junction sub-row
+       p.commissionValue = pw.commissionValue;
+       p.commissionType = pw.commissionType;
+       p.workerTypeName = pw.workerType?.name || null;
        return p;
     });
 
@@ -101,7 +104,7 @@ router.get('/:id/performance', authenticate, authorize('admin', 'gerant'), async
 });
 
 // POST /api/employees - Create employee
-router.post('/', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+router.post('/', authenticate, authorize('admin', 'gerant', 'production'), async (req, res) => {
   try {
     const { name, category, baseSalary, insuranceCost, commissionRate, notes } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required.' });
@@ -117,7 +120,7 @@ router.post('/', authenticate, authorize('admin', 'gerant'), async (req, res) =>
 });
 
 // PUT /api/employees/:id - Update employee
-router.put('/:id', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+router.put('/:id', authenticate, authorize('admin', 'gerant', 'production'), async (req, res) => {
   try {
     const employee = await Employee.findByPk(req.params.id);
     if (!employee) return res.status(404).json({ error: 'Employee not found.' });
@@ -131,7 +134,7 @@ router.put('/:id', authenticate, authorize('admin', 'gerant'), async (req, res) 
 });
 
 // DELETE /api/employees/:id - Delete employee
-router.delete('/:id', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+router.delete('/:id', authenticate, authorize('admin', 'gerant', 'production'), async (req, res) => {
   try {
     const employee = await Employee.findByPk(req.params.id);
     if (!employee) return res.status(404).json({ error: 'Employee not found.' });
@@ -145,7 +148,7 @@ router.delete('/:id', authenticate, authorize('admin', 'gerant'), async (req, re
 });
 
 // POST /api/employees/:id/payments - Add payment for employee
-router.post('/:id/payments', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+router.post('/:id/payments', authenticate, authorize('admin', 'gerant', 'production'), async (req, res) => {
   try {
     const { amount, date, description } = req.body;
     if (amount === undefined || amount === null || !date) return res.status(400).json({ error: 'Amount and date are required.' });
@@ -164,7 +167,7 @@ router.post('/:id/payments', authenticate, authorize('admin', 'gerant'), async (
 });
 
 // DELETE /api/employees/:id/payments/:payId - Delete employee payment
-router.delete('/:id/payments/:payId', authenticate, authorize('admin', 'gerant'), async (req, res) => {
+router.delete('/:id/payments/:payId', authenticate, authorize('admin', 'gerant', 'production'), async (req, res) => {
   try {
     const payment = await EmployeePayment.findByPk(req.params.payId);
     if (!payment) return res.status(404).json({ error: 'Payment not found.' });

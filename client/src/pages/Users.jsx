@@ -1,14 +1,21 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api';
 import Modal from '../components/Modal';
-import { Plus, Pencil, Trash2, Search, Settings } from 'lucide-react';
+import { Plus, Pencil, Trash2, Settings } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import SmartSearch from '../components/SmartSearch';
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuth();
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
   const [users, setUsers] = useState([]);
-  const [search, setSearch] = useState('');
+  const [searchText, setSearchText] = useState(initialSearch);
+  const [activeFilters, setActiveFilters] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'sales', email: '' });
+  const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'sales', email: '', active: true });
   
   // Password validation state
   const [pwdError, setPwdError] = useState('');
@@ -48,6 +55,19 @@ export default function UsersPage() {
       return;
     }
 
+    // Safety checks for active status
+    if (editing && editing.id === currentUser.id && !form.active) {
+      alert("Erreur: Vous ne pouvez pas vous désactiver vous-même !");
+      return;
+    }
+    if (editing && editing.role === 'admin' && !form.active) {
+      const activeAdmins = users.filter(u => u.role === 'admin' && u.active);
+      if (activeAdmins.length <= 1 && editing.active) {
+        alert("Erreur: Impossible de désactiver le dernier administrateur actif.");
+        return;
+      }
+    }
+
     try {
       const payload = { ...form };
       if (editing && !form.password) delete payload.password;
@@ -55,17 +75,38 @@ export default function UsersPage() {
       else await api.post('/users', payload);
       
       setShowModal(false); setEditing(null);
-      setForm({ username: '', password: '', fullName: '', role: 'sales', email: '' });
+      setForm({ username: '', password: '', fullName: '', role: 'sales', email: '', active: true });
       fetchUsers();
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
   const handleEdit = (u) => {
     setEditing(u);
-    setForm({ username: u.username, password: '', fullName: u.fullName, role: u.role, email: u.email || '' });
+    setForm({ username: u.username, password: '', fullName: u.fullName, role: u.role, email: u.email || '', active: u.active ?? true });
     setIsPwdTouched(false);
     setPwdError('');
     setShowModal(true);
+  };
+
+  const handleToggleStatus = async (user) => {
+    if (user.id === currentUser.id) {
+      alert("Erreur: Vous ne pouvez pas vous désactiver vous-même !");
+      return;
+    }
+
+    if (user.role === 'admin' && user.active) {
+      const activeAdmins = users.filter(u => u.role === 'admin' && u.active);
+      if (activeAdmins.length <= 1) {
+        alert("Erreur: Impossible de désactiver le dernier administrateur actif.");
+        return;
+      }
+      if (!confirm("Attention: Vous allez désactiver un administrateur. Confirmer ?")) return;
+    }
+
+    try {
+      await api.put(`/users/${user.id}`, { active: !user.active });
+      fetchUsers();
+    } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
   const handleDelete = async (id) => {
@@ -73,11 +114,40 @@ export default function UsersPage() {
     try { await api.delete(`/users/${id}`); fetchUsers(); } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
-  const filtered = users.filter(u =>
-    u.username.toLowerCase().includes(search.toLowerCase()) ||
-    u.fullName.toLowerCase().includes(search.toLowerCase()) ||
-    u.role.toLowerCase().includes(search.toLowerCase())
-  );
+  const userFilters = [
+    { key: 'role', label: '👤 Rôle', options: [
+      { value: 'admin', label: 'Admin', color: '#ef4444' },
+      { value: 'gerant', label: 'Gérant', color: '#8b5cf6' },
+      { value: 'sales', label: 'Commercial', color: '#3b82f6' },
+      { value: 'production', label: 'Production', color: '#f59e0b' },
+      { value: 'delivery', label: 'Livreur', color: '#10b981' },
+    ]},
+    { key: 'status', label: '⚡ Statut', options: [
+      { value: 'active', label: 'Actif', color: '#22c55e' },
+      { value: 'inactive', label: 'Inactif', color: '#ef4444' },
+    ]},
+  ];
+
+  const handleFilterChange = (text, filters) => {
+    setSearchText(text);
+    setActiveFilters(filters);
+  };
+
+  const filtered = users.filter(u => {
+    if (activeFilters.role && u.role !== activeFilters.role) return false;
+    if (activeFilters.status === 'active' && !u.active) return false;
+    if (activeFilters.status === 'inactive' && u.active) return false;
+    if (searchText.trim()) {
+      const s = searchText.toLowerCase();
+      if (!(
+        u.username.toLowerCase().includes(s) ||
+        u.fullName.toLowerCase().includes(s) ||
+        u.role.toLowerCase().includes(s) ||
+        (u.email || '').toLowerCase().includes(s)
+      )) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="page-transition">
@@ -85,17 +155,19 @@ export default function UsersPage() {
         <div className="table-header">
           <h2>Utilisateurs ({filtered.length})</h2>
           <div className="table-actions">
-            <div className="search-wrapper">
-              <Search className="search-icon" />
-              <input className="search-input" placeholder="Rechercher des utilisateurs..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+            <SmartSearch
+              filters={userFilters}
+              onFilterChange={handleFilterChange}
+              placeholder="Rechercher par nom, rôle, email..."
+              initialSearchText={initialSearch}
+            />
             <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ username: '', password: '', fullName: '', role: 'sales', email: '' }); setIsPwdTouched(false); setPwdError(''); setShowModal(true); }}>
               <Plus size={16} /> Ajouter Utilisateur
             </button>
           </div>
         </div>
         <table>
-          <thead><tr><th>ID</th><th>Nom d'utilisateur</th><th>Nom complet</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead>
+          <thead><tr><th>ID</th><th>Nom d'utilisateur</th><th>Nom complet</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Dernière connexion</th><th>Actions</th></tr></thead>
           <tbody>
             {filtered.length > 0 ? filtered.map(u => (
               <tr key={u.id}>
@@ -105,15 +177,34 @@ export default function UsersPage() {
                 <td>{u.email || '—'}</td>
                 <td><span className={`badge badge-${u.role}`}>{u.role === 'admin' ? 'Admin' : u.role === 'sales' ? 'Commercial' : u.role === 'production' ? 'Production' : u.role === 'delivery' ? 'Livreur' : u.role === 'gerant' ? 'Gérant' : u.role}</span></td>
                 <td><span className={`badge ${u.active ? 'badge-completed' : 'badge-cancelled'}`}>{u.active ? 'Actif' : 'Inactif'}</span></td>
+                <td style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>
+                  {u.isOnline ? (
+                    <span style={{ color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981ff', display: 'inline-block' }}></span>
+                      En ligne
+                    </span>
+                  ) : (
+                    u.lastLogin ? new Date(u.lastLogin).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'Jamais'
+                  )}
+                </td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-icon edit" onClick={() => handleEdit(u)}><Pencil size={14} /></button>
-                    <button className="btn-icon danger" onClick={() => handleDelete(u.id)}><Trash2 size={14} /></button>
+                    <button 
+                      className={`btn-icon ${u.active ? 'secondary' : 'success'}`} 
+                      onClick={() => handleToggleStatus(u)} 
+                      title={u.id === currentUser.id ? 'Action impossible' : (u.active ? 'Désactiver' : 'Activer')}
+                      disabled={u.id === currentUser.id}
+                      style={u.id === currentUser.id ? { opacity: 0.3, cursor: 'not-allowed' } : {}}
+                    >
+                      <Settings size={14} style={{ color: u.active ? 'var(--accent-red)' : 'var(--accent-green)' }} />
+                    </button>
+                    <button className="btn-icon edit" onClick={() => handleEdit(u)} title="Modifier"><Pencil size={14} /></button>
+                    <button className="btn-icon danger" onClick={() => handleDelete(u.id)} title="Supprimer"><Trash2 size={14} /></button>
                   </div>
                 </td>
               </tr>
             )) : (
-              <tr><td colSpan="7" className="table-empty"><Settings size={32} style={{color:'var(--text-muted)'}} /><p>Aucun utilisateur trouvé</p></td></tr>
+              <tr><td colSpan="8" className="table-empty"><Settings size={32} style={{color:'var(--text-muted)'}} /><p>Aucun utilisateur trouvé</p></td></tr>
             )}
           </tbody>
         </table>
@@ -165,6 +256,19 @@ export default function UsersPage() {
             <div className="form-group">
               <label>Email</label>
               <input className="form-control" type="email" placeholder="Adresse email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+            </div>
+            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '25px' }}>
+              <input 
+                type="checkbox" 
+                id="user-active"
+                checked={form.active} 
+                onChange={e => setForm({...form, active: e.target.checked})} 
+                disabled={editing && editing.id === currentUser.id}
+                style={{ width: '18px', height: '18px', cursor: editing && editing.id === currentUser.id ? 'not-allowed' : 'pointer', opacity: editing && editing.id === currentUser.id ? 0.5 : 1 }}
+              />
+              <label htmlFor="user-active" style={{ cursor: editing && editing.id === currentUser.id ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: editing && editing.id === currentUser.id ? 0.5 : 1 }}>
+                Utilisateur Actif {editing && editing.id === currentUser.id && "(Vous ne pouvez pas vous désactiver)"}
+              </label>
             </div>
           </div>
         </Modal>

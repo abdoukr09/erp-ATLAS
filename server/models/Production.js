@@ -37,7 +37,7 @@ const Production = sequelize.define('Production', {
     defaultValue: 'fabrication',
   },
   worker: {
-    type: DataTypes.STRING(100),
+    type: DataTypes.TEXT,
     allowNull: true,
   },
   status: {
@@ -91,9 +91,17 @@ const Production = sequelize.define('Production', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
-  quantity: {
+    quantity: {
     type: DataTypes.INTEGER,
     defaultValue: 1,
+  },
+  startTime: {
+    type: DataTypes.STRING(10), // HH:mm
+    allowNull: true,
+  },
+  endTime: {
+    type: DataTypes.STRING(10), // HH:mm
+    allowNull: true,
   },
 }, {
   tableName: 'productions',

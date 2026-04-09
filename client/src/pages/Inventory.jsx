@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Pencil, Trash2, Search, Package, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, AlertTriangle } from 'lucide-react';
+import SmartSearch from '../components/SmartSearch';
 
 export default function Inventory() {
   const { hasRole } = useAuth();
   const [materials, setMaterials] = useState([]);
-  const [search, setSearch] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [activeFilters, setActiveFilters] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', category: 'other', stock: '', unit: 'pcs', minStock: '1', price: '', supplier: '' });
@@ -77,12 +79,31 @@ export default function Inventory() {
 
   const canManage = hasRole('admin', 'production', 'gerant');
 
+  const inventoryFilters = [
+    { key: 'stockLevel', label: '📦 Stock', options: [
+      { value: 'low', label: 'Stock bas uniquement', color: '#ef4444' },
+    ]},
+  ];
+
+  const handleFilterChange = (text, filters) => {
+    setSearchText(text);
+    setActiveFilters(filters);
+  };
+
+  const filtered = materials.filter(m => {
+    if (activeFilters.stockLevel === 'low' && !isLowStock(m)) return false;
+    if (searchText.trim()) {
+      const s = searchText.toLowerCase();
+      if (!(
+        m.name?.toLowerCase()?.includes(s) ||
+        m.category?.toLowerCase()?.includes(s) ||
+        m.supplier?.toLowerCase()?.includes(s)
+      )) return false;
+    }
+    return true;
+  });
+
   const lowStockCount = materials.filter(isLowStock).length;
-  const filtered = materials.filter(m =>
-    m.name?.toLowerCase()?.includes(search.toLowerCase()) ||
-    m.category?.toLowerCase()?.includes(search.toLowerCase()) ||
-    m.supplier?.toLowerCase()?.includes(search.toLowerCase())
-  );
 
   return (
     <div className="page-transition">
@@ -97,10 +118,11 @@ export default function Inventory() {
         <div className="table-header">
           <h2>Matières Premières ({filtered.length})</h2>
           <div className="table-actions">
-            <div className="search-wrapper">
-              <Search className="search-icon" />
-              <input className="search-input" placeholder="Rechercher des articles..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+            <SmartSearch
+              filters={inventoryFilters}
+              onFilterChange={handleFilterChange}
+              placeholder="Rechercher matières, catégorie, fournisseur..."
+            />
             {canManage && (
               <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ name: '', category: 'other', stock: '', unit: 'pcs', minStock: '1', price: '', supplier: '' }); setShowModal(true); }}>
                 <Plus size={16} /> Ajouter Article

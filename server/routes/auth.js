@@ -9,7 +9,7 @@ const router = express.Router();
 
 // ─── Token config ──────────────────────────────────────────────────────────
 const ACCESS_TOKEN_EXPIRY = '15m';       // Short-lived access token
-const REFRESH_TOKEN_DAYS  = 7;            // Refresh token validity in days
+const REFRESH_TOKEN_DAYS = 7;            // Refresh token validity in days
 
 /** Generate a secure random opaque refresh token */
 function generateRefreshToken() {
@@ -39,8 +39,8 @@ router.post('/login', loginLimiter, validate(schemas.login), async (req, res, ne
     }
 
     // ── Brute-force lockout check ────────────────────────────────────────
-    const MAX_ATTEMPTS  = 10;
-    const LOCK_MINUTES  = 15;
+    const MAX_ATTEMPTS = 10;
+    const LOCK_MINUTES = 15;
 
     if (user.lockedUntil && new Date() < new Date(user.lockedUntil)) {
       const minutesLeft = Math.ceil((new Date(user.lockedUntil) - new Date()) / 60000);
@@ -69,8 +69,8 @@ router.post('/login', loginLimiter, validate(schemas.login), async (req, res, ne
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
 
-    // ── SUCCESS: reset lockout counters ───────────────────────────────────
-    await user.update({ failedLoginAttempts: 0, lockedUntil: null });
+    // ── SUCCESS: reset lockout counters & update last login ───────────────
+    await user.update({ failedLoginAttempts: 0, lockedUntil: null, lastLogin: new Date() });
 
     // Issue short-lived access token
     const accessToken = signAccessToken(user);

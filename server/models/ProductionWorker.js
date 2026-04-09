@@ -32,6 +32,27 @@ const ProductionWorker = sequelize.define('ProductionWorker', {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: true,
     defaultValue: 0,
+  },
+  workerTypeId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'worker_types',
+      key: 'id',
+    },
+  },
+  componentModelId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'product_models',
+      key: 'id',
+    },
+  },
+  componentIndex: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: 0,
   }
 }, {
   tableName: 'production_workers',

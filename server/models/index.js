@@ -17,6 +17,8 @@ const ProductionWorker = require('./ProductionWorker');
 const MaterialReservation = require('./MaterialReservation');
 const RefreshToken = require('./RefreshToken');
 const AuditLog = require('./AuditLog');
+const WorkerType = require('./WorkerType');
+const WorkerTypeTariff = require('./WorkerTypeTariff');
 
 // Associations
 Customer.hasMany(Order, { foreignKey: 'customerId', as: 'orders', onDelete: 'SET NULL' });
@@ -74,6 +76,14 @@ ProductionWorker.belongsTo(Production, { foreignKey: 'productionId', as: 'produc
 ProductionWorker.belongsTo(Employee, { foreignKey: 'workerId', as: 'worker', onDelete: 'CASCADE' });
 Employee.hasMany(ProductionWorker, { foreignKey: 'workerId', as: 'productionInvolvements', onDelete: 'CASCADE' });
 
+// Worker Type Associations
+WorkerType.hasMany(WorkerTypeTariff, { foreignKey: 'workerTypeId', as: 'tariffs', onDelete: 'CASCADE' });
+WorkerTypeTariff.belongsTo(WorkerType, { foreignKey: 'workerTypeId', as: 'workerType' });
+ProductModel.hasMany(WorkerTypeTariff, { foreignKey: 'productModelId', as: 'workerTypeTariffs', onDelete: 'CASCADE' });
+WorkerTypeTariff.belongsTo(ProductModel, { foreignKey: 'productModelId', as: 'productModel' });
+WorkerType.hasMany(ProductionWorker, { foreignKey: 'workerTypeId', as: 'productionWorkers' });
+ProductionWorker.belongsTo(WorkerType, { foreignKey: 'workerTypeId', as: 'workerType' });
+
 // Material Reservation Associations
 Order.hasMany(MaterialReservation, { foreignKey: 'orderId', as: 'reservations', onDelete: 'CASCADE' });
 MaterialReservation.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
@@ -99,7 +109,9 @@ module.exports = {
   ProductionWorker,
   MaterialReservation,
   RefreshToken,
-  AuditLog
+  AuditLog,
+  WorkerType,
+  WorkerTypeTariff
 };
 
 // ─── LEVEL 10: Enterprise Audit Trail (Global Hooks) ───────────────────────

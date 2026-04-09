@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ShoppingCart, Users, Package,
   Factory, Truck, CreditCard, Settings, LogOut, Sofa, Book, PackageCheck, Receipt,
-  BookOpen, Box, Briefcase, ShieldCheck, Database
+  BookOpen, Box, Briefcase, ShieldCheck, Database, Wrench, ClipboardList
 } from 'lucide-react';
 
 const menuItems = [
@@ -17,6 +17,8 @@ const menuItems = [
   { section: 'Opérations', icon: Factory, label: 'Fabrication', path: '/production', roles: ['admin', 'production', 'gerant'] },
   { section: 'Opérations', icon: Truck, label: 'Livraisons', path: '/deliveries', roles: ['admin', 'delivery', 'gerant'] },
   { section: 'Administration', icon: Briefcase, label: 'Personnel & Paie', path: '/employees', roles: ['admin', 'gerant'] },
+  { section: 'Administration', icon: Wrench, label: "Types d'Ouvriers", path: '/worker-types', roles: ['admin'] },
+  { section: 'Administration', icon: ClipboardList, label: 'Rapport Journalier', path: '/reports', roles: ['admin'] },
   { section: 'Administration', icon: Receipt, label: 'Tarifs & Coûts', path: '/tariffs', roles: ['admin'] },
   { section: 'Administration', icon: ShieldCheck, label: 'Utilisateurs', path: '/users', roles: ['admin'] },
 ];
@@ -37,6 +39,8 @@ export default function Layout({ children }) {
       case '/production': return 'Suivi de Production';
       case '/deliveries': return 'Bons de Livraison';
       case '/employees': return 'Personnel & Paie';
+      case '/worker-types': return "Types d'Ouvriers & Tarifs";
+      case '/reports': return 'Rapport Journalier';
       case '/tariffs': return 'Suivi des Dépenses';
       case '/users': return 'Comptes Utilisateurs';
       case '/db-explorer': return 'Maintenance Base de données';

@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
-import { Search, PackageCheck, Box } from 'lucide-react';
+import { PackageCheck, Box } from 'lucide-react';
+import SmartSearch from '../components/SmartSearch';
 
 export default function FinishedProducts() {
   const { hasRole } = useAuth();
   const canManage = hasRole('admin', 'gerant', 'production');
   const [orders, setOrders] = useState([]);
   const [productModels, setProductModels] = useState([]);
-  const [search, setSearch] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [activeFilters, setActiveFilters] = useState({});
   
   const [showStockModal, setShowStockModal] = useState(false);
   const [activeModel, setActiveModel] = useState(null);
@@ -24,8 +26,10 @@ export default function FinishedProducts() {
         api.get('/product-models')
       ]);
       setOrders(ordRes.data.filter(o => 
-        o.status === 'ready' || 
-        (o.status !== 'delivered' && o.status !== 'cancelled' && o.items && o.items.some(i => i.status === 'ready'))
+        o.status !== 'cancelled' && 
+        o.status !== 'delivered' && 
+        o.items && 
+        o.items.some(i => i.status === 'ready')
       ));
       setProductModels(modRes.data);
     } catch (err) {
@@ -48,18 +52,41 @@ export default function FinishedProducts() {
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
-  const filteredOrders = orders.filter(o =>
-    o.sofaModel?.toLowerCase()?.includes(search.toLowerCase()) ||
-    o.customer?.name?.toLowerCase()?.includes(search.toLowerCase()) ||
-    (o.items && o.items.some(i => i.sofaModel?.toLowerCase()?.includes(search.toLowerCase())))
-  );
+  const finishedFilters = [];
 
-  const filteredModels = productModels.filter(m =>
-    m.name?.toLowerCase()?.includes(search.toLowerCase())
-  );
+  const handleFilterChange = (text, filters) => {
+    setSearchText(text);
+    setActiveFilters(filters);
+  };
+
+  const filteredOrders = orders.filter(o => {
+    if (searchText.trim()) {
+      const s = searchText.toLowerCase();
+      if (!(
+        o.sofaModel?.toLowerCase()?.includes(s) ||
+        o.customer?.name?.toLowerCase()?.includes(s) ||
+        (o.items && o.items.some(i => i.sofaModel?.toLowerCase()?.includes(s)))
+      )) return false;
+    }
+    return true;
+  });
+
+  const filteredModels = productModels.filter(m => {
+    if (searchText.trim()) {
+      return m.name?.toLowerCase()?.includes(searchText.toLowerCase());
+    }
+    return true;
+  });
 
   return (
     <div className="page-transition">
+      <div style={{ marginBottom: '16px' }}>
+        <SmartSearch
+          filters={finishedFilters}
+          onFilterChange={handleFilterChange}
+          placeholder="Rechercher par modèle, client..."
+        />
+      </div>
       <div className="table-container">
         <div className="table-header">
           <h2>Commandes Prêtes ({filteredOrders.length})</h2>
@@ -89,22 +116,26 @@ export default function FinishedProducts() {
                   </div>
                 </td>
                 <td>
-                  {o.items && o.items.length > 0 ? (
+                  {o.items && o.items.filter(i => i.status === 'ready').length > 0 ? (
                     <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                      {o.items.map((item, idx) => (
-                        <div key={idx} style={{fontSize:'0.9em', fontWeight: item.status === 'ready' ? 600 : 400, color: item.status === 'ready' ? 'var(--accent-green)' : 'var(--text-muted)'}}>
-                          {item.sofaModel} {item.status === 'ready' ? '(Prêt ✅)' : '(En attente ⏳)'}
-                        </div>
-                      ))}
+                      {o.items.filter(i => i.status === 'ready').map((item, idx) => {
+                        return (
+                          <div key={idx} style={{fontSize:'0.9em', fontWeight: 600, color: 'var(--text-primary)'}}>
+                            {item.sofaModel}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : o.sofaModel || '—'}
                 </td>
                 <td>
-                  {o.items && o.items.length > 0 ? (
+                  {o.items && o.items.filter(i => i.status === 'ready').length > 0 ? (
                     <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                      {o.items.map((item, idx) => (
-                        <div key={idx} style={{fontSize:'0.9em', color: item.status === 'ready' ? 'var(--text-primary)' : 'var(--text-muted)'}}>x{item.quantity}</div>
-                      ))}
+                      {o.items.filter(i => i.status === 'ready').map((item, idx) => {
+                        return (
+                          <div key={idx} style={{fontSize:'0.9em', color: 'var(--text-primary)'}}>x{item.quantity}</div>
+                        );
+                      })}
                     </div>
                   ) : o.quantity || '0'}
                 </td>

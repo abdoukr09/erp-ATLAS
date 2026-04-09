@@ -14,7 +14,7 @@ const Employee = sequelize.define('Employee', {
   category: {
     type: DataTypes.STRING(50),
     allowNull: true,
-    defaultValue: 'Ouvrier', // Menuisier, Tapissier, Coupeur, Chauffeur, Vendeur...
+    defaultValue: 'Ouvrier',
   },
   baseSalary: {
     type: DataTypes.DECIMAL(10, 2),

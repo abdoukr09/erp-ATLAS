@@ -725,6 +725,17 @@ tr:last-child td {
   color: var(--text-muted);
 }
 
+.form-control::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+  filter: invert(1) brightness(0.8);
+  transition: opacity 0.2s;
+}
+
+.form-control::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
 select.form-control {
   appearance: none;
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
@@ -963,4 +974,265 @@ textarea.form-control {
 /* page transition */
 .page-transition {
   animation: fadeInUp 0.3s ease;
+}
+
+/* ==================== SMART SEARCH (Odoo-style) ==================== */
+.smart-search {
+  position: relative;
+  min-width: 280px;
+  max-width: 460px;
+  flex: 1;
+}
+
+.smart-search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: var(--text-primary);
+  animation: fadeIn 0.15s ease;
+}
+
+.filter-chip-label {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.filter-chip-value {
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+.filter-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 50%;
+  transition: all 0.15s;
+}
+
+.filter-chip-remove:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--accent-red);
+}
+
+.filter-chip-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-chip-clear:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.smart-search-input-row {
+  display: flex;
+  align-items: center;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0 6px 0 12px;
+  transition: var(--transition);
+}
+
+.smart-search-input-row:focus-within {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.smart-search-input-row .search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.smart-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 9px 10px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+}
+
+.smart-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.smart-search-filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.smart-search-filter-btn:hover,
+.smart-search-filter-btn.active {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent-blue);
+}
+
+.filter-count {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--accent-blue);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(30%, -30%);
+}
+
+/* Dropdown */
+.smart-search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xl);
+  z-index: 999;
+  max-height: 360px;
+  overflow-y: auto;
+  animation: slideUp 0.15s ease;
+}
+
+.smart-search-section {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.smart-search-section:last-child {
+  border-bottom: none;
+}
+
+.smart-search-section-title {
+  padding: 6px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+}
+
+.smart-search-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s;
+  text-align: left;
+}
+
+.smart-search-group-header:hover {
+  background: var(--bg-hover);
+}
+
+.smart-search-group-header .chevron {
+  transition: transform 0.2s ease;
+  color: var(--text-muted);
+}
+
+.smart-search-group-header .chevron.rotated {
+  transform: rotate(180deg);
+}
+
+.smart-search-group-options {
+  padding: 0 6px 4px;
+}
+
+.smart-search-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 14px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.1s;
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+
+.smart-search-option:hover {
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--accent-blue);
+}
+
+.smart-search-option-group {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.smart-search-option-label {
+  font-weight: 500;
+}
+
+.option-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }

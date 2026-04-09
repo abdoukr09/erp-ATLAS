@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api';
 import Modal from '../components/Modal';
-import { Plus, Pencil, Trash2, Search, Users as UsersIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users as UsersIcon } from 'lucide-react';
+import SmartSearch from '../components/SmartSearch';
 
 const ALGERIAN_WILAYAS = [
   "01 - Adrar", "02 - Chlef", "03 - Laghouat", "04 - Oum El Bouaghi", "05 - Batna", "06 - Béjaïa", "07 - Biskra", "08 - Béchar", "09 - Blida", "10 - Bouira",
@@ -13,8 +15,11 @@ const ALGERIAN_WILAYAS = [
 ];
 
 export default function Customers() {
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
   const [customers, setCustomers] = useState([]);
-  const [search, setSearch] = useState('');
+  const [searchText, setSearchText] = useState(initialSearch);
+  const [activeFilters, setActiveFilters] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', city: '', notes: '' });
@@ -56,11 +61,25 @@ export default function Customers() {
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
-  const filtered = customers.filter(c =>
-    c.name?.toLowerCase()?.includes(search.toLowerCase()) ||
-    c.phone?.toLowerCase()?.includes(search.toLowerCase()) ||
-    c.city?.toLowerCase()?.includes(search.toLowerCase())
-  );
+  const customerFilters = [];
+
+  const handleFilterChange = (text, filters) => {
+    setSearchText(text);
+    setActiveFilters(filters);
+  };
+
+  const filtered = customers.filter(c => {
+    if (searchText.trim()) {
+      const s = searchText.toLowerCase();
+      if (!(
+        c.name?.toLowerCase()?.includes(s) ||
+        c.phone?.toLowerCase()?.includes(s) ||
+        c.city?.toLowerCase()?.includes(s) ||
+        c.address?.toLowerCase()?.includes(s)
+      )) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="page-transition">
@@ -68,10 +87,12 @@ export default function Customers() {
         <div className="table-header">
           <h2>Clients ({filtered.length})</h2>
           <div className="table-actions">
-            <div className="search-wrapper">
-              <Search className="search-icon" />
-              <input className="search-input" placeholder="Rechercher des clients..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+            <SmartSearch
+              filters={customerFilters}
+              onFilterChange={handleFilterChange}
+              placeholder="Rechercher par nom, téléphone, ville, adresse..."
+              initialSearchText={initialSearch}
+            />
             <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ name: '', phone: '', email: '', address: '', city: '', notes: '' }); setShowModal(true); }}>
               <Plus size={16} /> Ajouter Client
             </button>
