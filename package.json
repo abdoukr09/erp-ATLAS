@@ -1,0 +1,8 @@
+{
+  "name": "erp-canape-root",
+  "private": true,
+  "scripts": {
+    "postinstall": "npm install --prefix client && npm install --prefix server",
+    "build": "npm run build --prefix client"
+  }
+}
