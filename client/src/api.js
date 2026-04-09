@@ -1,7 +1,9 @@
 import axios from 'axios';
 
-const hostname = window.location.hostname;
-const API_URL = `http://${hostname}:5001/api`;
+// Use Vite environment variable if provided (e.g. backend hosted on Render/Railway)
+// Otherwise default to the relative '/api' endpoint (Vercel Monorepo) or localhost:5001 in dev
+const API_URL = import.meta.env.VITE_API_URL 
+  || (import.meta.env.MODE === 'development' ? `http://${window.location.hostname}:5001/api` : '/api');
 
 const api = axios.create({
   baseURL: API_URL,

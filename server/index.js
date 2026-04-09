@@ -127,13 +127,18 @@ app.use(errorHandler);
 // ─── Start Server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
-sequelize.sync({ alter: true }).then(() => {
-  console.log('✅ Database synced (Altered)');
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
-    console.log(`🔒 Security: Helmet ✅ | Rate Limiting ✅ | Input Validation ✅ | Safe Errors ✅`);
+if (process.env.VERCEL) {
+  // On Vercel Serverless, we export the app and skip the slow DB Sync on every invocation.
+  // We assume the DB is already migrated or synced via external processes.
+  module.exports = app;
+} else {
+  sequelize.sync({ alter: true }).then(() => {
+    console.log('✅ Database synced (Altered)');
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
+      console.log(`🔒 Security: Helmet ✅ | Rate Limiting ✅ | Input Validation ✅ | Safe Errors ✅`);
+    });
+  }).catch(err => {
+    console.error('❌ Database sync failed:', err);
   });
-}).catch(err => {
-  console.error('❌ Database sync failed:', err);
-});
-
+}

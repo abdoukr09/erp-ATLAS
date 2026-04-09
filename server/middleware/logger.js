@@ -9,19 +9,6 @@ const path = require('path');
 const rfs = require('rotating-file-stream');
 const fs = require('fs');
 
-// Ensure log directory exists
-const logDirectory = path.join(__dirname, '../logs');
-if (!fs.existsSync(logDirectory)) {
-  fs.mkdirSync(logDirectory);
-}
-
-// Create a rotating write stream (one file per day)
-const accessLogStream = rfs.createStream('access.log', {
-  interval: '1d', // rotate daily
-  path: logDirectory,
-  maxFiles: 30, // keep 30 days of logs
-});
-
 // Custom Morgan token to extract authenticated User ID if present
 morgan.token('user-id', (req) => {
   return req.user ? `User:${req.user.id}` : 'Guest';
@@ -30,8 +17,27 @@ morgan.token('user-id', (req) => {
 // Define the log format
 const logFormat = ':remote-addr - :user-id - [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length] - :response-time ms';
 
-// Create the middleware instances
-const fileLogger = morgan(logFormat, { stream: accessLogStream });
+// Disable file logging in Vercel to prevent read-only filesystem crash
+// In modern 12-factor apps (or serverless), logging should go to stdout (consoleLogger)
+let fileLogger;
+if (process.env.VERCEL) {
+  fileLogger = (req, res, next) => next();
+} else {
+  // Ensure log directory exists
+  const logDirectory = path.join(__dirname, '../logs');
+  if (!fs.existsSync(logDirectory)) {
+    fs.mkdirSync(logDirectory);
+  }
+
+  // Create a rotating write stream (one file per day)
+  const accessLogStream = rfs.createStream('access.log', {
+    interval: '1d', // rotate daily
+    path: logDirectory,
+    maxFiles: 30, // keep 30 days of logs
+  });
+  
+  fileLogger = morgan(logFormat, { stream: accessLogStream });
+}
 const consoleLogger = morgan('dev', {
   skip: (req, res) => process.env.NODE_ENV === 'test' // Don't spam console during tests
 });
