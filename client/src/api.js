@@ -47,8 +47,14 @@ api.interceptors.response.use(
     
     // Check if the server bounced us due to a dead token
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // Do not attempt to refresh if the original request was /login itself!
+      // This causes an infinite reload loop and masks the real error (like DB connection errors).
+      if (originalRequest.url.includes('/auth/login')) {
+        return Promise.reject(error);
+      }
+
       // If the `/refresh` endpoint itself failed, the session is fully dead
-      if (originalRequest.url === '/auth/refresh') {
+      if (originalRequest.url.includes('/auth/refresh')) {
         setAccessToken(null);
         localStorage.removeItem('user');
         window.location.href = '/login';
