@@ -37,13 +37,21 @@ const allowedOrigins = [
 ];
 if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
 
+// Combine known origins with wildcard support for any *.vercel.app domain
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    if (!origin) return callback(null, true);
+    
+    // Explicit matches
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    
+    // Allow any Vercel preview/production domains dynamically
+    if (origin.endsWith('.vercel.app')) {
+      return callback(null, true);
     }
+    
+    // Reject anything else
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true, // Crucial for HTTP-only refresh token cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
