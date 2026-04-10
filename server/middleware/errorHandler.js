@@ -29,11 +29,10 @@ const errorHandler = (err, req, res, next) => {
     return res.status(401).json({ error: 'Invalid or expired session. Please log in again.' });
   }
 
-  // Generic fallback — never expose stack traces to clients
-  const isDev = process.env.NODE_ENV === 'development';
+  // Temporarily force stack trace/messages to surface to Vercel for live debugging
   res.status(err.status || 500).json({
-    error: isDev ? err.message : 'Internal server error',
-    ...(isDev && { stack: err.stack }),
+    error: `DEBUG RAW: ${err.message}`,
+    stack: err.stack,
   });
 };
 
