@@ -398,12 +398,14 @@ export default function Production() {
                      <select className="form-control" value={form.orderItemId} onChange={e => setForm({...form, orderItemId: e.target.value})} required disabled={editing}>
                         <option value="">Sélectionner un article</option>
                          {orders.flatMap(o => (o.items || []).filter(item => {
-                           // Show items that don't already have an ACTIVE (pending/in_progress) production
+                           // STRICT GUARD: Only show pending items that DO NOT have ANY production record
                            if (editing && item.id == form.orderItemId) return true;
-                           const hasActiveProduction = productions.some(p => p.orderItemId === item.id && p.status !== 'completed');
-                           return !hasActiveProduction;
+                           if (item.status !== 'pending') return false; // Hide items that are already processed or ready
+                           
+                           const hasAnyProduction = productions.some(p => p.orderItemId === item.id);
+                           return !hasAnyProduction;
                          }).map(item => (
-                           <option key={item.id} value={item.id}>Cde #{o.id} - {item.sofaModel} ({o.customer?.name}) [{item.status}]</option>
+                           <option key={item.id} value={item.id}>Cde #{o.id} - {item.sofaModel} ({o.customer?.name})</option>
                          )))}
                       </select>
                  </div>

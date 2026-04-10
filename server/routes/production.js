@@ -108,16 +108,15 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
       return res.status(400).json({ error: 'Order Item ID or Product Model ID is required.' });
     }
 
-    // DUPLICATE GUARD: Prevent creating multiple ACTIVE productions for the same order item
+    // STRICT DUPLICATE GUARD: Prevent creating multiple productions for the same order item
     if (orderItemId) {
-      const { Op } = require('sequelize');
       const existingProd = await Production.findOne({ 
-        where: { orderItemId, status: { [Op.ne]: 'completed' } }, 
+        where: { orderItemId }, 
         transaction: t 
       });
       if (existingProd) {
         await t.rollback();
-        return res.status(409).json({ error: 'Une fabrication active existe déjà pour cet article de commande.' });
+        return res.status(409).json({ error: 'Une fabrication existe déjà pour cet article de commande. Duplication interdite.' });
       }
     }
 
