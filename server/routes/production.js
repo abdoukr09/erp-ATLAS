@@ -86,6 +86,7 @@ router.get('/', authenticate, authorize('admin', 'production', 'gerant'), async 
 
 // POST /api/production — creates in pending, NO material deduction yet
 router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async (req, res) => {
+  console.log('[PROD-CREATE v3] Body:', JSON.stringify({ startDate: req.body.startDate, startTime: req.body.startTime, orderItemId: req.body.orderItemId }));
   const t = await Production.sequelize.transaction();
   try {
     let { orderItemId, productModelId, notes, startDate, tasks, quantity } = req.body;
