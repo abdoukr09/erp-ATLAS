@@ -220,6 +220,10 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
     res.status(201).json(production);
   } catch (error) {
     if (t && !t.finished) await t.rollback();
+    // Catch the database-level unique constraint (race-condition proof)
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({ error: 'Une fabrication existe déjà pour cet article. Rafraîchissez la page.' });
+    }
     res.status(500).json({ error: 'Server error during production initialization: ' + error.message });
   }
 });

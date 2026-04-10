@@ -106,6 +106,16 @@ const Production = sequelize.define('Production', {
 }, {
   tableName: 'productions',
   timestamps: true,
+  indexes: [
+    {
+      // BULLETPROOF: Database-level unique constraint prevents duplicate productions for the same order item
+      // Even if 50 requests arrive simultaneously, PostgreSQL will reject all but the first
+      unique: true,
+      fields: ['orderItemId'],
+      where: { orderItemId: { [require('sequelize').Op.ne]: null } }, // Only enforce when orderItemId is set (stock productions have null)
+      name: 'unique_order_item_production'
+    }
+  ]
 });
 
 module.exports = Production;
