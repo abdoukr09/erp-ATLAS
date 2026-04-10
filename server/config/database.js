@@ -30,10 +30,10 @@ if (process.env.NODE_ENV === 'production') {
     dialectModule: pg,
     logging: false,
     pool: {
-      max: process.env.VERCEL ? 2 : 5, // Extremely strict limit for serverless to prevent exhaustion
+      max: 5, // pgbouncer on port 6543 handles connection sharing, so 5 is safe even on serverless
       min: 0,
       acquire: 30000,
-      idle: 5000, // Drop idle connections quickly to free up Supabase
+      idle: 5000,
     },
     // We already intercepted the global pg driver for SSL, but adding it explicitly here as backup.
     dialectOptions: {

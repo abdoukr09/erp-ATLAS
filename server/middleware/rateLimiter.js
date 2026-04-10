@@ -1,8 +1,8 @@
 /**
- * TASK 1: Rate Limiting
- * - General API: 100 requests per 15 minutes
- * - Login: 5 requests per minute (brute-force protection)
- * - Critical writes (orders, payments): 30 requests per minute
+ * Rate Limiting — Production-tuned for 50+ concurrent ERP users.
+ * - General API: 5000 requests per 15 minutes per IP
+ * - Login: 20 attempts per minute (brute-force protection)
+ * - Critical writes (orders, payments, production): 200 requests per minute per IP
  */
 const rateLimit = require('express-rate-limit');
 
@@ -10,28 +10,28 @@ const standardResponse = (req, res) => {
   res.status(429).json({ error: 'Too many requests, please try again later.' });
 };
 
-// 1. Global API Requests Limiter (1000 per 15 minutes)
+// 1. Global API Requests Limiter (5000 per 15 minutes per IP)
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1000,
+  max: 5000,
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// 2. Login / Auth Limiter (50 attempts per minute)
+// 2. Login / Auth Limiter (20 attempts per minute — still blocks brute-force)
 const authLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 50,
-  message: { error: 'Too many requests, please try again later.' },
+  max: 20,
+  message: { error: 'Too many login attempts. Please wait a moment.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// 3. Orders/Payments Limiter (30 requests per minute)
+// 3. Orders/Payments/Production Limiter (200 requests per minute per IP)
 const strictLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 30,
+  max: 200,
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
