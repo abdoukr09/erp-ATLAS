@@ -167,7 +167,7 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
        worker: assignments.map(a => a.workerName || a.worker || '').filter(Boolean).join(', '), // Comma-separated names for backwards-compat!
        notes,
        startDate: startDate || new Date().toISOString().split('T')[0],
-       startTime: req.body.startTime || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Algiers' }),
+       startTime: req.body.startTime || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Algiers' }).replace(' h ', ':').replace(':', ':'),
        status: 'pending',
        materialsDeducted: false,
        basePrice: basePrice,

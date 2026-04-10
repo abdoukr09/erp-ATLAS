@@ -20,9 +20,14 @@ export default function Production() {
   const [workerTypes, setWorkerTypes] = useState([]);
   const [form, setForm] = useState({ 
     orderItemId: '', productModelId: '', notes: '', status: 'in_progress', 
-    startTime: '', endTime: '', tasks: []
+    startDate: '', startTime: '', endDate: '', endTime: '', tasks: []
   });
   const [isStockProduction, setIsStockProduction] = useState(false);
+
+  // Helper: Get strictly formatted HH:mm to prevent AM/PM bugs in time inputs
+  const get24hTime = (dateParam = new Date()) => {
+    return `${String(dateParam.getHours()).padStart(2, '0')}:${String(dateParam.getMinutes()).padStart(2, '0')}`;
+  };
 
   useEffect(() => { fetchProductions(); fetchOrders(); fetchProductModels(); fetchEmployees(); fetchWorkerTypes(); }, []);
 
@@ -290,7 +295,8 @@ export default function Production() {
                 setForm({ 
                   orderItemId: '', productModelId: '', notes: '', status: 'in_progress', tasks: [],
                   startDate: now.toISOString().split('T')[0],
-                  startTime: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                  startTime: get24hTime(now),
+                  endDate: '', endTime: ''
                 }); 
                 setShowModal(true); 
               }}>
@@ -406,7 +412,16 @@ export default function Production() {
            )}
             <div className="form-group">
               <label>Statut</label>
-              <select className="form-control" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
+              <select className="form-control" value={form.status} onChange={e => {
+                const newStatus = e.target.value;
+                const updates = { status: newStatus };
+                if (newStatus === 'completed' && !form.endDate) {
+                  const now = new Date();
+                  updates.endDate = now.toISOString().split('T')[0];
+                  updates.endTime = get24hTime(now);
+                }
+                setForm({...form, ...updates});
+              }}>
                 <option value="pending">En attente</option>
                 <option value="in_progress">En cours de fabrication</option>
                 <option value="completed">Terminé (Prêt pour Stock)</option>
