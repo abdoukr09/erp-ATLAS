@@ -152,7 +152,7 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
        stage: assignments[0]?.stage || 'fabrication', // Use first stage as fallback
        worker: assignments.map(a => a.workerName || a.worker || '').filter(Boolean).join(', '), // Comma-separated names for backwards-compat!
        notes,
-       startDate: finalStartDate || new Date(),
+       startDate: startDate || new Date(),
        startTime: req.body.startTime || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
        status: 'pending',
        materialsDeducted: false,
