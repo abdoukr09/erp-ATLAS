@@ -21,7 +21,7 @@ const errorHandler = (err, req, res, next) => {
   }
 
   if (err.name === 'SequelizeConnectionError') {
-    return res.status(503).json({ error: 'Service temporarily unavailable. Please try again.' });
+    return res.status(503).json({ error: `DEBUG DB CONNECTION: ${err.message}` });
   }
 
   // JWT errors
