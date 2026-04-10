@@ -64,15 +64,11 @@ router.get('/profit-summary', authenticate, authorize('admin', 'gerant'), async 
     // 3. Operating Expenses
     const totalExpenses = await Expense.sum('amount') || 0;
 
-    // 4. Employee Costs (Actual Payments Made + Fixed Insurance)
-    const employees = await Employee.findAll();
-    let totalFixedInsuranceCost = 0;
-    employees.forEach(e => {
-        totalFixedInsuranceCost += Number(e.insuranceCost) || 0;
-    });
-
+    // 4. Employee Costs (Actual Payments Made ONLY)
+    // We only count money that has ACTUALLY left the treasury (validated payments/bonuses).
+    // Declared base salaries or insurance profiles do not immediately subtract from profits until paid.
     const totalDynamicPayments = await EmployeePayment.sum('amount') || 0;
-    const totalLaborCost = totalFixedInsuranceCost + totalDynamicPayments;
+    const totalLaborCost = totalDynamicPayments;
 
     const netProfit = totalPayments - totalMaterialCost - totalExpenses - totalLaborCost;
 
