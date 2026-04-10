@@ -21,7 +21,7 @@ const errorHandler = (err, req, res, next) => {
   }
 
   if (err.name === 'SequelizeConnectionError') {
-    return res.status(503).json({ error: `DB Connection Error: ${err.message}` });
+    return res.status(503).json({ error: 'Service temporarily unavailable. Please try again.' });
   }
 
   // JWT errors
@@ -29,10 +29,11 @@ const errorHandler = (err, req, res, next) => {
     return res.status(401).json({ error: 'Invalid or expired session. Please log in again.' });
   }
 
-  // Temporarily force stack trace/messages to surface to Vercel for live debugging
+  // Generic fallback — never expose stack traces to clients
+  const isDev = process.env.NODE_ENV === 'development';
   res.status(err.status || 500).json({
-    error: `DEBUG RAW: ${err.message}`,
-    stack: err.stack,
+    error: isDev ? err.message : 'Internal server error',
+    ...(isDev && { stack: err.stack }),
   });
 };
 
