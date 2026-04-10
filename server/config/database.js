@@ -7,8 +7,8 @@ pg.defaults.ssl = {
   rejectUnauthorized: false
 };
 
-// Supabase injects POSTGRES_URL or DATABASE_URL directly into Vercel.
-const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+// Vercel Integrations often inject stale URLs. MY_SUPABASE_URL guarantees a clean override.
+const connectionString = process.env.MY_SUPABASE_URL || process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
 let sequelize;
 
