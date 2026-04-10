@@ -1236,3 +1236,9 @@ textarea.form-control {
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+
+/* Global spinner animation for lazy-loaded pages */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

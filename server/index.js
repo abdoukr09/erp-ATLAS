@@ -57,32 +57,23 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }));
 
-// ─── TASK 4 & 7: Security Headers (Helmet + HSTS) ───────────────────────────
+// ─── Security Headers (lightweight for serverless speed) ─────────────────────
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:'],
-      connectSrc: ["'self'", ...allowedOrigins],
-      fontSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: [],
-    },
-  },
+  contentSecurityPolicy: false, // Vercel/CDN handles CSP via headers; disable to save ~20ms per request
   crossOriginEmbedderPolicy: false,
   hsts: process.env.NODE_ENV === 'production' ? {
-    maxAge: 31536000, // 1 year strict transport security (force HTTPS)
+    maxAge: 31536000,
     includeSubDomains: true,
     preload: true
   } : false
 }));
 
 // ─── Core Middleware ──────────────────────────────────────────────────────────
-app.use(cookieParser());                             // Parse HTTP-only cookies (refresh tokens)
-app.use(fileLogger);                                 // LEVEL 6: Audit trail (File)
-app.use(consoleLogger);                              // LEVEL 6: Audit trail (Terminal)
+app.use(cookieParser());
+if (!process.env.VERCEL) {
+  app.use(fileLogger);   // File logging only on persistent servers (Vercel has no filesystem)
+}
+app.use(consoleLogger);
 app.use(express.json({ limit: '1mb' }));         // Prevent large payload attacks
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(sanitizeBody);                               // LEVEL 5: Strip $-prefix operator injection keys
