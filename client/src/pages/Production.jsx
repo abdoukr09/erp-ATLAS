@@ -23,6 +23,7 @@ export default function Production() {
     startTime: '', endTime: '', tasks: []
   });
   const [isStockProduction, setIsStockProduction] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { fetchProductions(); fetchOrders(); fetchProductModels(); fetchEmployees(); fetchWorkerTypes(); }, []);
 
@@ -93,6 +94,8 @@ export default function Production() {
   };
 
   const handleSubmit = async () => {
+    if (submitting) return; // Block double-clicks
+    setSubmitting(true);
     try {
       const sanitizedForm = {
         ...form,
@@ -108,7 +111,9 @@ export default function Production() {
       setForm({ orderItemId: '', productModelId: '', notes: '', status: 'in_progress', tasks: [] });
       fetchProductions();
       fetchOrders();
-    } catch (err) { alert(err.response?.data?.error || 'Error'); }
+    } catch (err) { alert(err.response?.data?.error || 'Error'); } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleEdit = (p) => {
@@ -365,7 +370,7 @@ export default function Production() {
       </div>
 
       {showModal && (
-        <Modal title={editing ? 'Modifier la Fiche' : 'Nouvelle Fiche'} onClose={() => setShowModal(false)} onSubmit={handleSubmit}>
+        <Modal title={editing ? 'Modifier la Fiche' : 'Nouvelle Fiche'} onClose={() => setShowModal(false)} onSubmit={handleSubmit} submitDisabled={submitting} submitLabel={submitting ? 'Enregistrement...' : undefined}>
           {!editing && (
              <>
                <div className="form-group" style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'15px'}}>

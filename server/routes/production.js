@@ -107,6 +107,15 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
       return res.status(400).json({ error: 'Order Item ID or Product Model ID is required.' });
     }
 
+    // DUPLICATE GUARD: Prevent creating multiple productions for the same order item
+    if (orderItemId) {
+      const existingProd = await Production.findOne({ where: { orderItemId }, transaction: t });
+      if (existingProd) {
+        await t.rollback();
+        return res.status(409).json({ error: 'Une fabrication existe déjà pour cet article de commande.' });
+      }
+    }
+
     let basePrice = null;
     let finalQuantity = quantity || 1;
     let orderId = null;
