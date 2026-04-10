@@ -286,7 +286,12 @@ export default function Production() {
             <button className="btn btn-primary" onClick={() => { 
                 setEditing(null); 
                 setIsStockProduction(false);
-                setForm({ orderItemId: '', productModelId: '', notes: '', status: 'in_progress', tasks: [] }); 
+                const now = new Date();
+                setForm({ 
+                  orderItemId: '', productModelId: '', notes: '', status: 'in_progress', tasks: [],
+                  startDate: now.toISOString().split('T')[0],
+                  startTime: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                }); 
                 setShowModal(true); 
               }}>
               <Plus size={16} /> Lancer Fabrication

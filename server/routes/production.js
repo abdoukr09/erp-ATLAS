@@ -161,8 +161,8 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
        stage: assignments[0]?.stage || 'fabrication', // Use first stage as fallback
        worker: assignments.map(a => a.workerName || a.worker || '').filter(Boolean).join(', '), // Comma-separated names for backwards-compat!
        notes,
-       startDate: startDate || new Date(),
-       startTime: req.body.startTime || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+       startDate: startDate || new Date().toISOString().split('T')[0],
+       startTime: req.body.startTime || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Algiers' }),
        status: 'pending',
        materialsDeducted: false,
        basePrice: basePrice,
