@@ -115,7 +115,7 @@ export default function Deliveries() {
               onFilterChange={handleFilterChange}
               placeholder="Rechercher par chauffeur, modèle..."
             />
-            <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ orderId: '', driver: '', deliveryDate: '', address: '', status: 'scheduled', notes: '' }); setShowModal(true); }}>
+            <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ orderId: '', driver: '', deliveryDate: new Date().toISOString().split('T')[0], address: '', status: 'scheduled', notes: '' }); setShowModal(true); }}>
               <Plus size={16} /> Planifier Livraison
             </button>
           </div>
