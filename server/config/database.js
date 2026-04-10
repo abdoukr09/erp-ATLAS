@@ -1,21 +1,27 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
+// Force the underlying pg driver to accept self-signed certificates globally
+const pg = require('pg');
+pg.defaults.ssl = {
+  rejectUnauthorized: false
+};
+
 // Supabase injects POSTGRES_URL or DATABASE_URL directly into Vercel.
 const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
 let sequelize;
 
 if (connectionString) {
-  // Cloud Database Connection (Vercel / Supabase)
   sequelize = new Sequelize(connectionString, {
     dialect: 'postgres',
+    protocol: 'postgres',
     logging: false,
     dialectModule: require('pg'), // Critical for Vercel Serverless bundling
     dialectOptions: {
       ssl: {
         require: true,
-        rejectUnauthorized: false
+        rejectUnauthorized: false // Bypasses self-signed cert block
       }
     },
     pool: {
