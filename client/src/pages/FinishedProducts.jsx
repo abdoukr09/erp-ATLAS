@@ -52,7 +52,18 @@ export default function FinishedProducts() {
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
-  const finishedFilters = [];
+  const finishedFilters = [
+    { 
+      key: 'prodState', 
+      label: 'État de Production',
+      options: [
+        { value: 'insufficient', label: 'Matières Insuffisantes (Rupture)', color: '#ef4444' },
+        { value: 'zero_producible', label: '0 Stock + Peut être fabriqué', color: '#3b82f6' },
+        { value: 'zero_rupture', label: '0 Stock + Matières en Rupture', color: '#f59e0b' },
+        { value: 'available_safe', label: 'En Stock + Matières OK', color: '#22c55e' },
+      ]
+    },
+  ];
 
   const handleFilterChange = (text, filters) => {
     setSearchText(text);
@@ -72,6 +83,27 @@ export default function FinishedProducts() {
   });
 
   const filteredModels = productModels.filter(m => {
+    // Advanced Filters logic
+    if (activeFilters.prodState) {
+      const stock = Number(m.stock || 0);
+      const max = Number(m.maxProducible || 0);
+      
+      switch (activeFilters.prodState) {
+        case 'insufficient':
+          if (max > 0) return false;
+          break;
+        case 'zero_producible':
+          if (!(stock === 0 && max > 0)) return false;
+          break;
+        case 'zero_rupture':
+          if (!(stock === 0 && max === 0)) return false;
+          break;
+        case 'available_safe':
+          if (!(stock > 0 && max > 0)) return false;
+          break;
+      }
+    }
+
     if (searchText.trim()) {
       return m.name?.toLowerCase()?.includes(searchText.toLowerCase());
     }

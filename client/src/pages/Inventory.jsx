@@ -81,7 +81,7 @@ export default function Inventory() {
 
   const inventoryFilters = [
     { key: 'stockLevel', label: '📦 Stock', options: [
-      { value: 'low', label: 'Stock bas uniquement', color: '#ef4444' },
+      { value: 'low', label: 'Matières Insuffisantes (Stock Bas)', color: '#ef4444' },
     ]},
   ];
 
