@@ -1,14 +1,10 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
-// Force the underlying pg driver to accept self-signed certificates globally
 const pg = require('pg');
-pg.defaults.ssl = {
-  rejectUnauthorized: false
-};
-// Disable prepared statements globally — Supabase Transaction Mode (pgbouncer) can't handle them.
-// Without this, connections crash after rotation because pgbouncer doesn't track prepared statement state.
-pg.defaults.prepareThreshold = 0;
+// No global defaults here to prevent interfering with local connections.
+// SSL and prepared statement settings will be applied per-instance below.
+
 
 // Vercel Integrations often inject stale URLs. MY_SUPABASE_URL guarantees a clean override.
 const connectionString = process.env.MY_SUPABASE_URL || process.env.POSTGRES_URL || process.env.DATABASE_URL;
@@ -50,8 +46,28 @@ if (process.env.NODE_ENV === 'production') {
     define: { timestamps: true },
     query: { raw: false }
   });
+} else if (process.env.DB_NAME && !process.env.FORCE_REMOTE_DB) {
+  // Local Database Connection (Your Laptop)
+  sequelize = new Sequelize(
+    process.env.DB_NAME,
+    process.env.DB_USER,
+    process.env.DB_PASSWORD || null,
+    {
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 5432,
+      dialect: 'postgres',
+      logging: false,
+      pool: {
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 10000,
+      },
+    }
+  );
+  console.log('📡 Using LOCAL database configuration');
 } else if (connectionString) {
-  // Parse the URL manually to bypass pg connection-string URI parsing bugs that drop SSL configs
+  // Remote/Supabase Database Connection (Used locally for testing remote data)
   const { URL } = require('url');
   const pgUrl = new URL(connectionString);
   
@@ -79,25 +95,8 @@ if (process.env.NODE_ENV === 'production') {
       },
     }
   );
-} else {
-  // Local Database Connection (Your Laptop)
-  sequelize = new Sequelize(
-    process.env.DB_NAME,
-    process.env.DB_USER,
-    process.env.DB_PASSWORD || null,
-    {
-      host: process.env.DB_HOST,
-      port: process.env.DB_PORT,
-      dialect: 'postgres',
-      logging: false,
-      pool: {
-        max: 5,
-        min: 0,
-        acquire: 30000,
-        idle: 10000,
-      },
-    }
-  );
+  console.log('📡 Using REMOTE (Supabase) database configuration locally');
 }
+
 
 module.exports = sequelize;

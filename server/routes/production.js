@@ -99,8 +99,12 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
       return dateObj.toISOString().split('T')[0];
     };
 
-    if (orderItemId === '') orderItemId = null;
-    if (productModelId === '') productModelId = null;
+    if (!orderItemId || orderItemId === '' || orderItemId === 'null') orderItemId = null;
+    if (!productModelId || productModelId === '' || productModelId === 'null') productModelId = null;
+
+    // Convert to integers to ensure they aren't invalid strings trying to insert into an INT column
+    if (orderItemId !== null) orderItemId = parseInt(orderItemId, 10) || null;
+    if (productModelId !== null) productModelId = parseInt(productModelId, 10) || null;
     startDate = sanitizeDate(startDate);
 
     if (!orderItemId && !productModelId) {
@@ -158,6 +162,7 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
     }];
 
     // 1. Create ONE Production Record
+    console.log('[PROD-CREATE-PAYLOAD] insert payload:', { orderId, orderItemId, productModelId, typeProductModel: typeof productModelId });
     const production = await Production.create({
        orderId,
        orderItemId,

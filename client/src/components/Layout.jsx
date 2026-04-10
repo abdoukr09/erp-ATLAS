@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ShoppingCart, Users, Package,
   Factory, Truck, CreditCard, Settings, LogOut, Sofa, Book, PackageCheck, Receipt,
-  BookOpen, Box, Briefcase, ShieldCheck, Database, Wrench, ClipboardList
+  BookOpen, Box, Briefcase, ShieldCheck, Database, Wrench, ClipboardList,
+  Menu, X
 } from 'lucide-react';
 
 const menuItems = [
@@ -26,6 +28,21 @@ const menuItems = [
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Close menu when route changes
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [location]);
+
+  // Close menu when ESC is pressed
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') setIsMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
 
   const getPageTitle = (path) => {
     switch(path) {
@@ -62,7 +79,13 @@ export default function Layout({ children }) {
 
   return (
     <div className="app-layout">
-      <aside className="sidebar">
+      {/* Mobile Overlay */}
+      <div 
+        className={`mobile-overlay ${isMenuOpen ? 'visible' : ''}`} 
+        onClick={() => setIsMenuOpen(false)}
+      />
+
+      <aside className={`sidebar ${isMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
             <div className="sidebar-logo-icon"><Sofa size={22} /></div>
@@ -71,6 +94,10 @@ export default function Layout({ children }) {
               <span>ERP System</span>
             </div>
           </div>
+          {/* Close button for mobile menu */}
+          <button className="menu-toggle" style={{ marginRight: 0 }} onClick={() => setIsMenuOpen(false)}>
+            <X size={20} />
+          </button>
         </div>
 
         <nav className="sidebar-nav">
@@ -112,7 +139,12 @@ export default function Layout({ children }) {
 
       <main className="main-content">
         <header className="topbar">
-          <h2 className="topbar-title">{getPageTitle(location.pathname)}</h2>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <button className="menu-toggle" onClick={() => setIsMenuOpen(true)}>
+              <Menu size={20} />
+            </button>
+            <h2 className="topbar-title">{getPageTitle(location.pathname)}</h2>
+          </div>
           <div className="topbar-actions">
             <span className={`badge badge-${user?.role}`}>{user?.role}</span>
           </div>
