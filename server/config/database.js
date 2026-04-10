@@ -13,24 +13,34 @@ const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 let sequelize;
 
 if (connectionString) {
-  sequelize = new Sequelize(connectionString, {
-    dialect: 'postgres',
-    protocol: 'postgres',
-    logging: false,
-    dialectModule: require('pg'), // Critical for Vercel Serverless bundling
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false // Bypasses self-signed cert block
-      }
-    },
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000,
-    },
-  });
+  // Parse the URL manually to bypass pg connection-string URI parsing bugs that drop SSL configs
+  const { URL } = require('url');
+  const pgUrl = new URL(connectionString);
+  
+  sequelize = new Sequelize(
+    pgUrl.pathname.slice(1), // database name
+    pgUrl.username,          // username
+    pgUrl.password,          // password
+    {
+      host: pgUrl.hostname,
+      port: pgUrl.port,
+      dialect: 'postgres',
+      logging: false,
+      dialectModule: require('pg'),
+      dialectOptions: {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false
+        }
+      },
+      pool: {
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 10000,
+      },
+    }
+  );
 } else {
   // Local Database Connection (Your Laptop)
   sequelize = new Sequelize(
