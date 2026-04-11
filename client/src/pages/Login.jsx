@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Sofa, AlertCircle } from 'lucide-react';
+import { Globe, AlertCircle } from 'lucide-react';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -30,8 +30,8 @@ export default function Login() {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <div className="login-logo"><Sofa size={32} /></div>
-          <h1>Le Canapé</h1>
+          <img src="/logo-atlas.png" alt="Atlas Logo" style={{ width: '60px', height: '60px', borderRadius: '12px', marginBottom: '15px' }} />
+          <h1>ERP ATLAS</h1>
           <p>Connectez-vous à votre compte ERP</p>
         </div>
         {error && (

@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ShoppingCart, Users, Package,
-  Factory, Truck, CreditCard, Settings, LogOut, Sofa, Book, PackageCheck, Receipt,
+  Factory, Truck, CreditCard, Settings, LogOut, Globe, Book, PackageCheck, Receipt,
   BookOpen, Box, Briefcase, ShieldCheck, Database, Wrench, ClipboardList,
   Menu, X
 } from 'lucide-react';
@@ -61,7 +61,7 @@ export default function Layout({ children }) {
       case '/tariffs': return 'Suivi des Dépenses';
       case '/users': return 'Comptes Utilisateurs';
       case '/db-explorer': return 'Maintenance Base de données';
-      default: return 'ERP Le Canapé';
+      default: return 'ERP ATLAS';
     }
   };
 
@@ -88,10 +88,10 @@ export default function Layout({ children }) {
       <aside className={`sidebar ${isMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <div className="sidebar-logo-icon"><Sofa size={22} /></div>
+            <img src="/logo-atlas.png" alt="Atlas Logo" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }} />
             <div>
-              <h1>Le Canapé</h1>
-              <span>ERP System</span>
+              <h1>ERP ATLAS</h1>
+              <span>System ERP</span>
             </div>
           </div>
           {/* Close button for mobile menu */}
