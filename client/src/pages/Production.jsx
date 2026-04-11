@@ -414,73 +414,13 @@ export default function Production() {
            )}
             <div className="form-group">
               <label>Statut</label>
-              <select className="form-control" value={form.status} onChange={e => {
-                const newStatus = e.target.value;
-                const updates = { status: newStatus };
-                if (newStatus === 'completed' && !form.endDate) {
-                  const now = new Date();
-                  updates.endDate = now.toISOString().split('T')[0];
-                  updates.endTime = get24hTime(now);
-                }
-                setForm({...form, ...updates});
-              }}>
+              <select className="form-control" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
                 <option value="pending">En attente</option>
                 <option value="in_progress">En cours de fabrication</option>
                 <option value="completed">Terminé (Prêt pour Stock)</option>
               </select>
             </div>
 
-            <div className="form-row" style={{ marginTop: '10px' }}>
-              <div className="form-group">
-                <label>📅 Date Début</label>
-                <input 
-                  type="date" 
-                  className="form-control" 
-                  style={{cursor: 'pointer'}}
-                  value={form.startDate || ''} 
-                  onChange={e => setForm({...form, startDate: e.target.value})} 
-                  onClick={(e) => { if (e.target.showPicker) e.target.showPicker(); }}
-                />
-              </div>
-              <div className="form-group">
-                <label>🕒 Heure Début</label>
-                <input 
-                  type="time" 
-                  className="form-control" 
-                  style={{cursor: 'pointer'}}
-                  value={form.startTime || ''} 
-                  onChange={e => setForm({...form, startTime: e.target.value})} 
-                  onClick={(e) => { if (e.target.showPicker) e.target.showPicker(); }}
-                />
-              </div>
-            </div>
-
-            {form.status === 'completed' && (
-              <div className="form-row" style={{ marginTop: '10px' }}>
-                <div className="form-group">
-                  <label>📅 Date Fin</label>
-                  <input 
-                    type="date" 
-                    className="form-control" 
-                    style={{cursor: 'pointer'}}
-                    value={form.endDate || ''} 
-                    onChange={e => setForm({...form, endDate: e.target.value})} 
-                    onClick={(e) => { if (e.target.showPicker) e.target.showPicker(); }}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>🕒 Heure Fin</label>
-                  <input 
-                    type="time" 
-                    className="form-control" 
-                    style={{cursor: 'pointer'}}
-                    value={form.endTime || ''} 
-                    onChange={e => setForm({...form, endTime: e.target.value})} 
-                    onClick={(e) => { if (e.target.showPicker) e.target.showPicker(); }}
-                  />
-                </div>
-              </div>
-            )}
             
             {/* Worker Type Assignment Sections */}
             {(true) && (

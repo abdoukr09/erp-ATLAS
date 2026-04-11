@@ -161,6 +161,13 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
        commissionValue: 0
     }];
 
+    const now = new Date();
+    const currentStatus = req.body.status || 'pending';
+    
+    // Auto-set start time if created directly in progress
+    const autoStartDate = currentStatus === 'in_progress' ? now.toISOString().split('T')[0] : (startDate || null);
+    const autoStartTime = currentStatus === 'in_progress' ? now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : (req.body.startTime || null);
+
     // 1. Create ONE Production Record
     console.log('[PROD-CREATE-PAYLOAD] insert payload:', { orderId, orderItemId, productModelId, typeProductModel: typeof productModelId });
     const production = await Production.create({
@@ -170,9 +177,9 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
        stage: assignments[0]?.stage || 'fabrication', // Use first stage as fallback
        worker: assignments.map(a => a.workerName || a.worker || '').filter(Boolean).join(', '), // Comma-separated names for backwards-compat!
        notes,
-       startDate: startDate || new Date().toISOString().split('T')[0],
-       startTime: req.body.startTime || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Algiers' }).replace(' h ', ':').replace(':', ':'),
-       status: 'pending',
+       startDate: autoStartDate,
+       startTime: autoStartTime,
+       status: currentStatus,
        materialsDeducted: false,
        basePrice: basePrice,
        quantity: finalQuantity,
@@ -271,9 +278,24 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
     }
 
     const newStatus = req.body.status;
+    const oldStatus = production.status;
+    const now = new Date();
+
+    // AUTOMATIC TIMESTAMP LOGIC
+    if (newStatus === 'in_progress' && oldStatus === 'pending') {
+      // Starting work
+      req.body.startDate = now.toISOString().split('T')[0];
+      req.body.startTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    } else if (newStatus === 'completed' && oldStatus !== 'completed') {
+      // Finishing work
+      req.body.endDate = now.toISOString().split('T')[0];
+      req.body.endTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      req.body.completionDate = now.toISOString().split('T')[0];
+    }
+
     const needsDeduction = !production.materialsDeducted && 
       (newStatus === 'in_progress' || newStatus === 'completed') &&
-      production.status !== newStatus;
+      oldStatus !== newStatus;
 
     // Deduct materials when moving to in_progress or completed
     if (needsDeduction) {
