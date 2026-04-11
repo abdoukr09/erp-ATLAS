@@ -28,7 +28,7 @@ export default function UsersPage() {
     if (WEAK_PASSWORDS.includes(value.toLowerCase())) {
       return "Mot de passe trop faible ! (ex: 123, password interdit)";
     }
-    if (value.length < 6 || value.length > 8) return "Doit faire entre 6 et 8 caractères.";
+    if (value.length < 6) return "Doit faire au moins 6 caractères.";
     if (!/[a-zA-Z]/.test(value) || !/[0-9]/.test(value)) return "Doit contenir au moins une lettre et un chiffre.";
     return '';
   };
