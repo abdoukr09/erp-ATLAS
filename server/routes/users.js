@@ -1,6 +1,7 @@
 const express = require('express');
 const { User } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
+const { validate, schemas } = require('../middleware/validate');
 const router = express.Router();
 
 // GET /api/users - list all users (admin only)
@@ -31,13 +32,9 @@ router.get('/', authenticate, authorize('admin'), async (req, res) => {
 });
 
 // POST /api/users - create user (admin only)
-router.post('/', authenticate, authorize('admin'), async (req, res) => {
+router.post('/', authenticate, authorize('admin'), validate(schemas.createUser), async (req, res) => {
   try {
     const { username, password, fullName, role, email } = req.body;
-
-    if (!username || !password || !fullName) {
-      return res.status(400).json({ error: 'Username, password, and full name are required.' });
-    }
 
     const existing = await User.findOne({ where: { username } });
     if (existing) {
@@ -52,7 +49,7 @@ router.post('/', authenticate, authorize('admin'), async (req, res) => {
 });
 
 // PUT /api/users/:id - update user (admin only)
-router.put('/:id', authenticate, authorize('admin'), async (req, res) => {
+router.put('/:id', authenticate, authorize('admin'), validate(schemas.updateUser), async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found.' });

@@ -25,7 +25,7 @@ const schemas = {
   // POST /api/auth/login
   login: Joi.object({
     username: safeStr(50).required(),
-    password: Joi.string().min(4).max(128).required(),
+    password: Joi.string().min(6).max(128).required(),
   }),
 
   // POST /api/customers
@@ -133,6 +133,25 @@ const schemas = {
     stock: Joi.number().min(0).required(),
     minStock: Joi.number().min(0).optional(),
     unit: safeStr(30).optional().allow('', null),
+  }),
+  
+  // POST /api/users
+  createUser: Joi.object({
+    username: safeStr(50).required(),
+    password: Joi.string().min(6).max(128).required(),
+    fullName: safeStr(100).required(),
+    role: Joi.string().valid('admin', 'sales', 'production', 'delivery', 'gerant').required(),
+    email: Joi.string().email().optional().allow('', null),
+  }),
+
+  // PUT /api/users/:id
+  updateUser: Joi.object({
+    username: safeStr(50).optional(),
+    password: Joi.string().min(6).max(128).optional().allow('', null),
+    fullName: safeStr(100).optional(),
+    role: Joi.string().valid('admin', 'sales', 'production', 'delivery', 'gerant').optional(),
+    email: Joi.string().email().optional().allow('', null, ''),
+    active: Joi.boolean().optional(),
   }),
 };
 
