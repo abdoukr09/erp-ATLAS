@@ -1,7 +1,7 @@
 {
-  "name": "erp-canape-server",
+  "name": "erp-atlas-server",
   "version": "1.0.0",
-  "description": "ERP Le Canapé - Backend Server",
+  "description": "ERP ATLAS - Backend Server",
   "main": "index.js",
   "scripts": {
     "dev": "node index.js",
