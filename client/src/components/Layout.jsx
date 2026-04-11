@@ -7,6 +7,7 @@ import {
   BookOpen, Box, Briefcase, ShieldCheck, Database, Wrench, ClipboardList,
   Menu, X
 } from 'lucide-react';
+import logoAtlas from '../assets/logo-atlas.png';
 
 const menuItems = [
   { section: 'Principal', icon: LayoutDashboard, label: 'Tableau de bord', path: '/', roles: ['admin', 'gerant', 'sales'] },
@@ -88,7 +89,7 @@ export default function Layout({ children }) {
       <aside className={`sidebar ${isMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <img src="/logo-atlas.png" alt="Atlas Logo" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }} />
+            <img src={logoAtlas} alt="Atlas Logo" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }} />
             <div>
               <h1>ERP ATLAS</h1>
               <span>System ERP</span>
