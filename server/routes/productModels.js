@@ -20,21 +20,26 @@ router.get('/', authenticate, async (req, res) => {
 
     const enrichedModels = models.map(model => {
       const plainModel = model.get({ plain: true });
-      let maxProducible = -1; // -1 means no limitation found (or no BOM)
+      let maxProducible = -1; // Default to -1 (N/A / No BOM)
 
       if (plainModel.materials && plainModel.materials.length > 0) {
+        // Initialize with a large number since we want the MINIMUM limitation
+        maxProducible = Infinity; 
+        
         for (const mat of plainModel.materials) {
-          const reqQty = mat.ModelMaterial?.quantity || 0;
+          const reqQty = Number(mat.ModelMaterial?.quantity) || 0;
           if (reqQty > 0) {
-            const currentStock = Number(mat.stock) || 0;
+            const currentStock = Math.max(0, Number(mat.stock) || 0);
             const possible = Math.floor(currentStock / reqQty);
-            if (maxProducible === -1 || possible < maxProducible) {
+            if (possible < maxProducible) {
               maxProducible = possible;
             }
           }
         }
-      } else {
-        maxProducible = 0; // If no direct materials, assume 0 for simplicity (requires configuration)
+        
+        // If no limiting materials were actually processed (e.g. all reqQty were 0), 
+        // fall back to -1 or 0? Usually -1 is safer for "Not Configured".
+        if (maxProducible === Infinity) maxProducible = -1;
       }
 
       plainModel.maxProducible = maxProducible;
