@@ -112,6 +112,7 @@ app.use('/api/product-models', require('./routes/productModels'));
 app.use('/api/tariffs', require('./routes/tariffs'));
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/worker-types', require('./routes/workerTypes'));
+app.use('/api/locations', require('./routes/locations'));
 app.use('/api/reports', require('./routes/reports'));
 
 // Health check (not rate-limited — internal probes need this)

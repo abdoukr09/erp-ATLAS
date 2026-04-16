@@ -95,6 +95,14 @@ const Production = sequelize.define('Production', {
     type: DataTypes.INTEGER,
     defaultValue: 1,
   },
+  destLocationId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'locations',
+      key: 'id',
+    },
+  },
   startTime: {
     type: DataTypes.STRING(10), // HH:mm
     allowNull: true,

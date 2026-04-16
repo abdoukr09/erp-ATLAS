@@ -20,16 +20,22 @@ export default function Production() {
   const [workerTypes, setWorkerTypes] = useState([]);
   const [form, setForm] = useState({ 
     orderItemId: '', productModelId: '', notes: '', status: 'in_progress', 
-    startDate: '', startTime: '', endDate: '', endTime: '', tasks: []
+    startDate: '', startTime: '', endDate: '', endTime: '', tasks: [],
+    destLocationId: ''
   });
   const [isStockProduction, setIsStockProduction] = useState(false);
+  const [locations, setLocations] = useState([]);
 
   // Helper: Get strictly formatted HH:mm to prevent AM/PM bugs in time inputs
   const get24hTime = (dateParam = new Date()) => {
     return `${String(dateParam.getHours()).padStart(2, '0')}:${String(dateParam.getMinutes()).padStart(2, '0')}`;
   };
 
-  useEffect(() => { fetchProductions(); fetchOrders(); fetchProductModels(); fetchEmployees(); fetchWorkerTypes(); }, []);
+  useEffect(() => { fetchProductions(); fetchOrders(); fetchProductModels(); fetchEmployees(); fetchWorkerTypes(); fetchLocations(); }, []);
+
+  const fetchLocations = async () => {
+    try { const res = await api.get('/locations'); setLocations(res.data); } catch (err) { console.error(err); }
+  };
 
   const fetchProductions = async () => {
     try { const res = await api.get('/production'); setProductions(res.data); } catch (err) { console.error(err); }
@@ -110,7 +116,7 @@ export default function Production() {
         await api.post('/production', isStockProduction ? { ...sanitizedForm, orderId: null } : { ...sanitizedForm, productModelId: null });
       }
       setShowModal(false); setEditing(null);
-      setForm({ orderItemId: '', productModelId: '', notes: '', status: 'in_progress', tasks: [] });
+      setForm({ orderItemId: '', productModelId: '', notes: '', status: 'in_progress', tasks: [], destLocationId: '' });
       fetchProductions();
       fetchOrders();
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
@@ -174,7 +180,8 @@ export default function Production() {
       startTime: p.startTime || '',
       endDate: p.endDate || '',
       endTime: p.endTime || '',
-      tasks
+      tasks,
+      destLocationId: p.destLocationId || ''
     });
     setShowModal(true);
   };
@@ -296,7 +303,8 @@ export default function Production() {
                   orderItemId: '', productModelId: '', notes: '', status: 'in_progress', tasks: [],
                   startDate: now.toISOString().split('T')[0],
                   startTime: get24hTime(now),
-                  endDate: '', endTime: ''
+                  endDate: '', endTime: '',
+                  destLocationId: ''
                 }); 
                 setShowModal(true); 
               }}>
@@ -412,6 +420,22 @@ export default function Production() {
                )}
              </>
            )}
+
+            {isStockProduction && (
+              <div className="form-group">
+                <label>📍 Destination (Stock Localisé)</label>
+                <select className="form-control" value={form.destLocationId} onChange={e => setForm({...form, destLocationId: e.target.value})}>
+                  <option value="">🏠 Usine (Stock Central)</option>
+                  {locations.map(loc => (
+                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                  ))}
+                </select>
+                <p style={{fontSize: 12, color: 'var(--text-muted)', marginTop: 4}}>
+                  Si sélectionné, le produit sera ajouté directement dans cet emplacement une fois terminé.
+                </p>
+              </div>
+            )}
+
             <div className="form-group">
               <label>Statut</label>
               <select className="form-control" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>

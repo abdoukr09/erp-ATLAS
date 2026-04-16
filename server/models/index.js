@@ -19,6 +19,9 @@ const RefreshToken = require('./RefreshToken');
 const AuditLog = require('./AuditLog');
 const WorkerType = require('./WorkerType');
 const WorkerTypeTariff = require('./WorkerTypeTariff');
+const Location = require('./Location');
+const LocationStock = require('./LocationStock');
+const TransferDeliveryItem = require('./TransferDeliveryItem');
 
 // Associations
 Customer.hasMany(Order, { foreignKey: 'customerId', as: 'orders', onDelete: 'SET NULL' });
@@ -90,6 +93,28 @@ MaterialReservation.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
 Material.hasMany(MaterialReservation, { foreignKey: 'materialId', as: 'reservations' });
 MaterialReservation.belongsTo(Material, { foreignKey: 'materialId', as: 'material' });
 
+// Location & Stock Associations
+Location.hasMany(LocationStock, { foreignKey: 'locationId', as: 'stocks', onDelete: 'CASCADE' });
+LocationStock.belongsTo(Location, { foreignKey: 'locationId', as: 'location' });
+
+ProductModel.hasMany(LocationStock, { foreignKey: 'productModelId', as: 'locationStocks', onDelete: 'CASCADE' });
+LocationStock.belongsTo(ProductModel, { foreignKey: 'productModelId', as: 'productModel' });
+
+Location.hasMany(Production, { foreignKey: 'destLocationId', as: 'productions' });
+Production.belongsTo(Location, { foreignKey: 'destLocationId', as: 'destLocation' });
+
+Location.hasMany(Delivery, { foreignKey: 'sourceLocationId', as: 'sourceDeliveries' });
+Delivery.belongsTo(Location, { foreignKey: 'sourceLocationId', as: 'sourceLocation' });
+
+Location.hasMany(Delivery, { foreignKey: 'destLocationId', as: 'destDeliveries' });
+Delivery.belongsTo(Location, { foreignKey: 'destLocationId', as: 'destLocation' });
+
+Delivery.hasMany(TransferDeliveryItem, { foreignKey: 'deliveryId', as: 'transferItems', onDelete: 'CASCADE' });
+TransferDeliveryItem.belongsTo(Delivery, { foreignKey: 'deliveryId', as: 'delivery' });
+
+ProductModel.hasMany(TransferDeliveryItem, { foreignKey: 'productModelId', as: 'transferInvolvements' });
+TransferDeliveryItem.belongsTo(ProductModel, { foreignKey: 'productModelId', as: 'productModel' });
+
 module.exports = {
   User,
   Customer,
@@ -111,7 +136,10 @@ module.exports = {
   RefreshToken,
   AuditLog,
   WorkerType,
-  WorkerTypeTariff
+  WorkerTypeTariff,
+  Location,
+  LocationStock,
+  TransferDeliveryItem
 };
 
 // ─── LEVEL 10: Enterprise Audit Trail (Global Hooks) ───────────────────────

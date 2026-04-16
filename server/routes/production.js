@@ -1,5 +1,5 @@
 const express = require('express');
-const { Production, Order, Customer, ProductModel, OrderItem, ProductionWorker, Employee, MaterialReservation, WorkerType, WorkerTypeTariff } = require('../models');
+const { Production, Order, Customer, ProductModel, OrderItem, ProductionWorker, Employee, MaterialReservation, WorkerType, WorkerTypeTariff, LocationStock } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
 const sequelize = require('../config/database');
 const router = express.Router();
@@ -151,6 +151,8 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
       }
     }
 
+    const { destLocationId } = req.body;
+
     // Default to a single generic task if UI didn't send an array (fallback for old UI)
     const assignments = (tasks && tasks.length > 0) ? tasks : [{
        stage: req.body.stage || 'fabrication',
@@ -183,6 +185,7 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
        materialsDeducted: false,
        basePrice: basePrice,
        quantity: finalQuantity,
+       destLocationId: destLocationId || null,
        taskName: assignments[0]?.taskName || 'Fabrication'
     }, { transaction: t });
 
@@ -353,6 +356,20 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
         const model = await ProductModel.findByPk(production.productModelId, { transaction: t, lock: t.LOCK.UPDATE });
         if (model) {
           await model.update({ stock: (model.stock || 0) + 1 }, { transaction: t });
+          
+          // Increment Location Stock if destination is a showroom
+          if (production.destLocationId) {
+            const [locStock, created] = await LocationStock.findOrCreate({
+              where: {
+                locationId: production.destLocationId,
+                productModelId: production.productModelId
+              },
+              defaults: { quantity: 0 },
+              transaction: t,
+              lock: t.LOCK.UPDATE
+            });
+            await locStock.update({ quantity: locStock.quantity + 1 }, { transaction: t });
+          }
         }
       }
       req.body.endDate = new Date();

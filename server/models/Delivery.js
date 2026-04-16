@@ -9,9 +9,30 @@ const Delivery = sequelize.define('Delivery', {
   },
   orderId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
     references: {
       model: 'orders',
+      key: 'id',
+    },
+  },
+  type: {
+    type: DataTypes.ENUM('order', 'transfer'),
+    allowNull: false,
+    defaultValue: 'order',
+  },
+  sourceLocationId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'locations',
+      key: 'id',
+    },
+  },
+  destLocationId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'locations',
       key: 'id',
     },
   },
