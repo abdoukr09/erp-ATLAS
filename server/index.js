@@ -128,7 +128,24 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 if (process.env.VERCEL) {
-  // Auto-seed default admin on Vercel Cold Start if no admin exists
+  // Run DB sync + migrations on cold start to ensure production schema is up-to-date
+  async function initVercelDb() {
+    try {
+      await sequelize.sync({ alter: true });
+      console.log('✅ Vercel: Database synced (Altered)');
+
+      // Ensure orderId is nullable (required for internal transfers with no order)
+      try {
+        await sequelize.query('ALTER TABLE deliveries ALTER COLUMN "orderId" DROP NOT NULL;');
+        console.log('✅ Vercel: orderId constraint fixed');
+      } catch (e) {
+        // Already nullable — no problem
+      }
+    } catch (err) {
+      console.error('❌ Vercel DB sync failed:', err.message);
+    }
+  }
+
   async function ensureDefaultAdmin() {
     try {
       const { User } = require('./models');
@@ -147,9 +164,9 @@ if (process.env.VERCEL) {
       console.error('Auto-seed admin failed:', err.message);
     }
   }
-  ensureDefaultAdmin();
 
-  // On Vercel Serverless, we export the app and skip the slow DB Sync on every invocation.
+  initVercelDb().then(() => ensureDefaultAdmin());
+
   module.exports = app;
 } else {
   sequelize.sync({ alter: true }).then(() => {
