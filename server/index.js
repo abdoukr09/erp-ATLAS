@@ -128,46 +128,35 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 if (process.env.VERCEL) {
-  // Run DB sync + migrations on cold start to ensure production schema is up-to-date
-  async function initVercelDb() {
+  // Cache the init promise — cold start runs it once, warm invocations skip it
+  let dbReadyPromise = null;
+
+  async function initDb() {
     try {
       await sequelize.sync({ alter: true });
-      console.log('✅ Vercel: Database synced (Altered)');
-
-      // Ensure orderId is nullable (required for internal transfers with no order)
+      console.log('✅ Vercel: DB synced');
+      // Drop NOT NULL on orderId so internal transfers (no order) work
       try {
         await sequelize.query('ALTER TABLE deliveries ALTER COLUMN "orderId" DROP NOT NULL;');
-        console.log('✅ Vercel: orderId constraint fixed');
-      } catch (e) {
-        // Already nullable — no problem
-      }
-    } catch (err) {
-      console.error('❌ Vercel DB sync failed:', err.message);
-    }
-  }
-
-  async function ensureDefaultAdmin() {
-    try {
+      } catch (_) { /* already nullable, fine */ }
+      // Auto-seed admin
       const { User } = require('./models');
-      const adminExists = await User.findOne({ where: { role: 'admin' } });
-      if (!adminExists) {
-        await User.create({
-          username: 'admin',
-          password: 'admin123',
-          fullName: 'Administrateur',
-          role: 'admin',
-          email: 'admin@erp-canape.local'
-        });
-        console.log('✅ Default admin user (admin) automatically seeded.');
+      const exists = await User.findOne({ where: { role: 'admin' } });
+      if (!exists) {
+        await User.create({ username: 'admin', password: 'admin123', fullName: 'Administrateur', role: 'admin', email: 'admin@erp-canape.local' });
+        console.log('✅ Default admin seeded');
       }
     } catch (err) {
-      console.error('Auto-seed admin failed:', err.message);
+      console.error('❌ DB init failed:', err.message);
     }
   }
 
-  initVercelDb().then(() => ensureDefaultAdmin());
-
-  module.exports = app;
+  // Wrap every request: await DB ready before handling
+  module.exports = async (req, res) => {
+    if (!dbReadyPromise) dbReadyPromise = initDb();
+    await dbReadyPromise;
+    return app(req, res);
+  };
 } else {
   sequelize.sync({ alter: true }).then(() => {
     console.log('✅ Database synced (Altered)');
