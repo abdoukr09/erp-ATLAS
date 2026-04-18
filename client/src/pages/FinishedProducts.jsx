@@ -124,8 +124,19 @@ export default function FinishedProducts() {
     }
   ];
 
-  // Filters for Par Emplacement: only location filter matters here
+  // Filters for Par Emplacement: both production state AND location
   const localFilters = [
+    {
+      key: 'prodState',
+      label: 'État de Production',
+      options: [
+        { value: 'insufficient', label: 'Matières Insuffisantes (Rupture)', color: '#ef4444' },
+        { value: 'zero_producible', label: '0 Stock + Peut être fabriqué', color: '#3b82f6' },
+        { value: 'zero_rupture', label: '0 Stock + Matières en Rupture', color: '#f59e0b' },
+        { value: 'available_safe', label: 'En Stock + Matières OK', color: '#22c55e' },
+        { value: 'stock_rupture', label: 'En Stock + Matières en Rupture', color: '#ef4444' },
+      ]
+    },
     {
       key: 'location',
       label: '📍 Emplacement',
