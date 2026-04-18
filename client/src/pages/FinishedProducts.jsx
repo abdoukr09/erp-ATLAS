@@ -109,7 +109,8 @@ export default function FinishedProducts() {
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
-  const finishedFilters = [
+  // Filters for Vue Générale: no location filter (it's meaningless in catalog view)
+  const generalFilters = [
     { 
       key: 'prodState', 
       label: 'État de Production',
@@ -120,7 +121,11 @@ export default function FinishedProducts() {
         { value: 'available_safe', label: 'En Stock + Matières OK', color: '#22c55e' },
         { value: 'stock_rupture', label: 'En Stock + Matières en Rupture', color: '#ef4444' },
       ]
-    },
+    }
+  ];
+
+  // Filters for Par Emplacement: only location filter matters here
+  const localFilters = [
     {
       key: 'location',
       label: '📍 Emplacement',
@@ -190,7 +195,15 @@ export default function FinishedProducts() {
       </div>
 
       <div style={{ marginBottom: '16px' }}>
-        <SmartSearch filters={finishedFilters} onFilterChange={handleFilterChange} placeholder="Rechercher par modèle, client..." />
+        {activeTab === 'general' && (
+          <SmartSearch filters={generalFilters} onFilterChange={handleFilterChange} placeholder="Rechercher par modèle, client..." />
+        )}
+        {activeTab === 'local' && (
+          <SmartSearch filters={localFilters} onFilterChange={handleFilterChange} placeholder="Rechercher par modèle ou emplacement..." />
+        )}
+        {activeTab === 'manage' && (
+          <SmartSearch filters={[]} onFilterChange={handleFilterChange} placeholder="Rechercher un emplacement..." />
+        )}
       </div>
 
       {activeTab === 'general' && (
