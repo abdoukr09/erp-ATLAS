@@ -33,7 +33,7 @@ router.get('/stock', authenticate, async (req, res) => {
 });
 
 // CREATE a location
-router.post('/', authenticate, authorize('admin'), async (req, res) => {
+router.post('/', authenticate, authorize('admin', 'gerant'), async (req, res) => {
   try {
     const { name, color } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required.' });
@@ -50,7 +50,7 @@ router.post('/', authenticate, authorize('admin'), async (req, res) => {
 });
 
 // UPDATE a location
-router.put('/:id', authenticate, authorize('admin'), async (req, res) => {
+router.put('/:id', authenticate, authorize('admin', 'gerant'), async (req, res) => {
   try {
     const { name, color } = req.body;
     const location = await Location.findByPk(req.params.id);
@@ -68,7 +68,7 @@ router.put('/:id', authenticate, authorize('admin'), async (req, res) => {
 });
 
 // DELETE a location
-router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
+router.delete('/:id', authenticate, authorize('admin', 'gerant'), async (req, res) => {
   try {
     const location = await Location.findByPk(req.params.id);
     if (!location) return res.status(404).json({ error: 'Location not found.' });

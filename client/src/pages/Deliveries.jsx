@@ -89,8 +89,15 @@ export default function Deliveries() {
     setConfirming(true);
     try {
       if (confirmDelivery.type === 'transfer') {
-        const d = confirmDelivery;
-        await api.put(`/deliveries/${d.id}`, { ...d, status: 'delivered', sourceLocationId: d.sourceLocationId || '', destLocationId: d.destLocationId || '' });
+        // BUG 4 FIX: send only the necessary fields, NOT the full spread
+        await api.put(`/deliveries/${confirmDelivery.id}`, {
+          status: 'delivered',
+          sourceLocationId: confirmDelivery.sourceLocationId || null,
+          destLocationId: confirmDelivery.destLocationId || null,
+          type: 'transfer',
+          driver: confirmDelivery.driver,
+          deliveryDate: confirmDelivery.deliveryDate,
+        });
         setShowConfirmModal(false);
         setConfirmDelivery(null);
         fetchDeliveries();
@@ -131,6 +138,7 @@ export default function Deliveries() {
 
   const filtered = deliveries.filter(d => {
     if (activeFilters.type && d.type !== activeFilters.type) return false;
+    if (activeFilters.status && d.status !== activeFilters.status) return false;
     if (searchText.trim()) {
       const s = searchText.toLowerCase();
       if (!(
@@ -189,7 +197,7 @@ export default function Deliveries() {
           </div>
         </div>
         <table>
-          <thead><tr><th>ID</th><th>Commande</th><th>Client</th><th>Téléphone</th><th>Adresse</th><th>Modèle</th><th>Chauffeur</th><th>Reste à Payer</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
+          <thead><tr><th>ID</th><th>Commande</th><th>Client</th><th>Téléphone</th><th>Adresse</th><th>Modèle(s)</th><th>Trajet</th><th>Chauffeur</th><th>Reste à Payer</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
           <tbody>
             {filtered.length > 0 ? filtered.map(d => {
               const reste = d.order ? Number(d.order.remainingPayment || 0) : 0;
@@ -268,7 +276,14 @@ export default function Deliveries() {
                         onClick={async () => {
                           if (window.confirm("Voulez-vous marquer ce transfert comme Livré ? Le stock sera mis à jour.")) {
                             try {
-                               await api.put(`/deliveries/${d.id}`, { ...d, status: 'delivered', sourceLocationId: d.sourceLocationId || '', destLocationId: d.destLocationId || '' });
+                               await api.put(`/deliveries/${d.id}`, {
+                                 status: 'delivered',
+                                 sourceLocationId: d.sourceLocationId || null,
+                                 destLocationId: d.destLocationId || null,
+                                 type: 'transfer',
+                                 driver: d.driver,
+                                 deliveryDate: d.deliveryDate,
+                               });
                                fetchDeliveries();
                                fetchLocations();
                             } catch (err) {

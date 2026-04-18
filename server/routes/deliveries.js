@@ -105,6 +105,14 @@ router.post('/quick-transfer', authenticate, authorize('admin', 'delivery', 'ger
       return res.status(400).json({ error: 'Paramètres invalides.' });
     }
 
+    // Prevent transferring to the same location
+    const srcId = sourceLocationId || null;
+    const dstId = destLocationId || null;
+    if (srcId === dstId) {
+      await t.rollback();
+      return res.status(400).json({ error: 'La source et la destination sont identiques.' });
+    }
+
     const { LocationStock } = require('../models');
 
     // 1. Check Source
@@ -426,14 +434,35 @@ router.post('/:id/confirm', authenticate, authorize('admin', 'delivery', 'gerant
     // 1. Mark delivery as delivered
     await delivery.update({ status: 'delivered', deliveryDate: delivery.deliveryDate || new Date() }, { transaction: t });
 
-    // 2. Mark order as delivered
+    // 2. Deduct stock (mirrors PUT /:id logic)
+    const { LocationStock } = require('../models');
+    if (delivery.sourceLocationId) {
+      const pm = await ProductModel.findOne({ where: { name: order.sofaModel }, transaction: t });
+      if (pm) {
+        const locStock = await LocationStock.findOne({
+          where: { locationId: delivery.sourceLocationId, productModelId: pm.id },
+          transaction: t, lock: t.LOCK.UPDATE
+        });
+        if (locStock) {
+          await locStock.update({ quantity: Math.max(0, locStock.quantity - (order.quantity || 1)) }, { transaction: t });
+        }
+        await pm.update({ stock: Math.max(0, pm.stock - (order.quantity || 1)) }, { transaction: t });
+      }
+    } else {
+      const pm = await ProductModel.findOne({ where: { name: order.sofaModel }, transaction: t });
+      if (pm) {
+        await pm.update({ stock: Math.max(0, pm.stock - (order.quantity || 1)) }, { transaction: t });
+      }
+    }
+
+    // 3. Mark order as delivered
     await order.update({
       status: 'delivered',
       remainingPayment: 0,
       paymentStatus: 'fully_paid',
     }, { transaction: t });
 
-    // 3. Create final payment record (only if there is a remaining balance)
+    // 4. Create final payment record (only if there is a remaining balance)
     let finalPayment = null;
     if (remainingAmount > 0) {
       finalPayment = await Payment.create({
@@ -465,13 +494,70 @@ router.post('/:id/confirm', authenticate, authorize('admin', 'delivery', 'gerant
 
 // DELETE /api/deliveries/:id
 router.delete('/:id', authenticate, authorize('admin', 'delivery', 'gerant'), async (req, res) => {
+  const t = await Delivery.sequelize.transaction();
   try {
-    const delivery = await Delivery.findByPk(req.params.id);
-    if (!delivery) return res.status(404).json({ error: 'Delivery not found.' });
+    const delivery = await Delivery.findByPk(req.params.id, {
+      include: [{ model: Order, as: 'order' }],
+      transaction: t
+    });
+    if (!delivery) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Delivery not found.' });
+    }
 
-    await delivery.destroy();
+    // If it was delivered, reverse the stock changes before deleting
+    if (delivery.status === 'delivered') {
+      const { LocationStock } = require('../models');
+
+      if (delivery.type === 'transfer') {
+        const items = await TransferDeliveryItem.findAll({ where: { deliveryId: delivery.id }, transaction: t });
+        for (const item of items) {
+          // Reverse: add back to source
+          if (delivery.sourceLocationId) {
+            const [srcStock] = await LocationStock.findOrCreate({
+              where: { locationId: delivery.sourceLocationId, productModelId: item.productModelId },
+              defaults: { quantity: 0 }, transaction: t, lock: t.LOCK.UPDATE
+            });
+            await srcStock.update({ quantity: srcStock.quantity + item.quantity }, { transaction: t });
+          }
+          // Reverse: remove from destination
+          if (delivery.destLocationId) {
+            const dstStock = await LocationStock.findOne({
+              where: { locationId: delivery.destLocationId, productModelId: item.productModelId },
+              transaction: t, lock: t.LOCK.UPDATE
+            });
+            if (dstStock) {
+              await dstStock.update({ quantity: Math.max(0, dstStock.quantity - item.quantity) }, { transaction: t });
+            }
+          }
+        }
+      } else if (delivery.type === 'order' && delivery.order) {
+        // Reverse client delivery: add stock back
+        const pm = await ProductModel.findOne({ where: { name: delivery.order.sofaModel }, transaction: t });
+        if (pm) {
+          await pm.update({ stock: pm.stock + (delivery.order.quantity || 1) }, { transaction: t });
+          if (delivery.sourceLocationId) {
+            const [locStock] = await LocationStock.findOrCreate({
+              where: { locationId: delivery.sourceLocationId, productModelId: pm.id },
+              defaults: { quantity: 0 }, transaction: t, lock: t.LOCK.UPDATE
+            });
+            await locStock.update({ quantity: locStock.quantity + (delivery.order.quantity || 1) }, { transaction: t });
+          }
+        }
+        // Remove final payment and reset order
+        await Payment.destroy({ where: { orderId: delivery.order.id, type: 'final' }, transaction: t });
+        await delivery.order.update({ status: 'ready', paymentStatus: 'advance_paid', remainingPayment: 0 }, { transaction: t });
+      }
+    }
+
+    // Delete transfer items first (FK constraint)
+    await TransferDeliveryItem.destroy({ where: { deliveryId: delivery.id }, transaction: t });
+    await delivery.destroy({ transaction: t });
+    await t.commit();
     res.json({ message: 'Delivery deleted.' });
   } catch (error) {
+    if (t && !t.finished) await t.rollback();
+    console.error('Delete Delivery Error:', error);
     res.status(500).json({ error: 'Server error.' });
   }
 });
