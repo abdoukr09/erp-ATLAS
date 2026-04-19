@@ -403,6 +403,14 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), validate
     if (req.body.commissionType !== undefined) req.body.commissionType = req.body.commissionType;
     if (req.body.commissionValue !== undefined) req.body.commissionValue = req.body.commissionValue;
 
+    // Sanitize empty strings → null for integer FK fields (Postgres rejects "" for int columns)
+    const intFields = ['customerId', 'salesmanId', 'sourceLocationId', 'destLocationId'];
+    for (const field of intFields) {
+      if (req.body[field] === '' || req.body[field] === undefined) {
+        req.body[field] = null;
+      }
+    }
+
     await order.update(req.body, { transaction: t });
 
     // ── Check if Order is fully ready ────────────────────────────────────
