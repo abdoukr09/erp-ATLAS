@@ -259,8 +259,13 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
       return dateObj.toISOString().split('T')[0];
     };
 
-    if (req.body.orderId === '') req.body.orderId = null;
-    if (req.body.productModelId === '') req.body.productModelId = null;
+    // Sanitize ALL empty strings → null for integer FK fields (Postgres rejects "" for int columns)
+    const intFields = ['orderId', 'orderItemId', 'productModelId', 'destLocationId', 'completedById'];
+    for (const field of intFields) {
+      if (req.body[field] === '' || req.body[field] === 'null') {
+        req.body[field] = null;
+      }
+    }
     
     req.body.startDate = sanitizeDate(req.body.startDate);
     req.body.endDate = sanitizeDate(req.body.endDate);
