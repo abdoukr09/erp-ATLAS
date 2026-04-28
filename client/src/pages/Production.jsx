@@ -408,8 +408,10 @@ export default function Production() {
                          {orders.flatMap(o => (o.items || []).filter(item => {
                            // STRICT GUARD: Only show pending items that DO NOT have ANY production record
                            if (editing && item.id == form.orderItemId) return true;
-                           if (item.status !== 'pending') return false; // Hide items that are already processed or ready
+                           if (item.status !== 'pending' && item.status !== 'problem') return false; 
                            
+                           if (item.status === 'problem') return true; // Always allow starting a repair task
+
                            const hasAnyProduction = productions.some(p => p.orderItemId === item.id);
                            return !hasAnyProduction;
                          }).map(item => (

@@ -96,7 +96,58 @@ router.get('/:id/performance', authenticate, authorize('admin', 'gerant', 'produ
 
     const sales = Array.from(salesMap.values());
 
-    res.json({ productions, sales });
+    // ── Delivery Performance (Chauffeurs / Livreurs) ──
+    const { Delivery, Location, DeliveryRoutePrime, DeliveryOrder } = require('../models');
+    const { Customer } = require('../models');
+    
+    const completedDeliveries = await Delivery.findAll({
+      where: {
+        driverId: employeeId,
+        status: 'delivered',
+        deliveryDate: { [Op.between]: [startDate, endDate] }
+      },
+      include: [
+        { model: Location, as: 'sourceLocation', attributes: ['id', 'name'] },
+        { model: Location, as: 'destLocation', attributes: ['id', 'name'] },
+        { model: Order, as: 'order', attributes: ['id', 'sofaModel', 'quantity', 'deliveryAddress'],
+          include: [{ model: Customer, as: 'customer', attributes: ['name', 'city'] }]
+        },
+        { model: DeliveryOrder, as: 'deliveryOrders',
+          include: [{ model: Order, as: 'order', attributes: ['id', 'sofaModel', 'quantity'],
+            include: [{ model: Customer, as: 'customer', attributes: ['name', 'city'] }]
+          }]
+        }
+      ]
+    });
+
+    // Look up primes for each delivery route
+    const deliveries = [];
+    for (const del of completedDeliveries) {
+      const d = del.toJSON();
+      
+      // Try to find the matching route prime
+      const primeWhere = {
+        sourceLocationId: d.sourceLocationId || null,
+      };
+      
+      if (d.type === 'transfer' && d.destLocationId) {
+        primeWhere.destLocationId = d.destLocationId;
+        primeWhere.destWilaya = null;
+      } else if (d.destWilaya) {
+        primeWhere.destWilaya = d.destWilaya;
+        primeWhere.destLocationId = null;
+      }
+
+      let routePrime = null;
+      if (primeWhere.destLocationId || primeWhere.destWilaya) {
+        routePrime = await DeliveryRoutePrime.findOne({ where: primeWhere });
+      }
+      
+      d.routePrime = routePrime ? Number(routePrime.prime) : 0;
+      deliveries.push(d);
+    }
+
+    res.json({ productions, sales, deliveries });
   } catch (error) {
     console.error('Get Performance Error:', error);
     res.status(500).json({ error: 'Server error.' });

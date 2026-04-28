@@ -63,12 +63,16 @@ const Order = sequelize.define('Order', {
     defaultValue: 'unpaid',
   },
   status: {
-    type: DataTypes.ENUM('pending', 'in_production', 'ready', 'delivered', 'cancelled'),
+    type: DataTypes.ENUM('pending', 'in_production', 'ready', 'delivered', 'cancelled', 'problem'),
     allowNull: false,
     defaultValue: 'pending',
   },
   deliveryAddress: {
     type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  deliveryWilaya: {
+    type: DataTypes.STRING(100),
     allowNull: true,
   },
   notes: {

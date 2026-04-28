@@ -6,6 +6,15 @@ import { useAuth } from '../context/AuthContext';
 import { Plus, Pencil, Trash2, ShoppingCart } from 'lucide-react';
 import SmartSearch from '../components/SmartSearch';
 
+const ALGERIAN_WILAYAS = [
+  "01 - Adrar", "02 - Chlef", "03 - Laghouat", "04 - Oum El Bouaghi", "05 - Batna", "06 - Béjaïa", "07 - Biskra", "08 - Béchar", "09 - Blida", "10 - Bouira",
+  "11 - Tamanrasset", "12 - Tébessa", "13 - Tlemcen", "14 - Tiaret", "15 - Tizi Ouzou", "16 - Alger", "17 - Djelfa", "18 - Jijel", "19 - Sétif", "20 - Saïda",
+  "21 - Skikda", "22 - Sidi Bel Abbès", "23 - Annaba", "24 - Guelma", "25 - Constantine", "26 - Médéa", "27 - Mostaganem", "28 - M'Sila", "29 - Mascara", "30 - Ouargla",
+  "31 - Oran", "32 - El Bayadh", "33 - Illizi", "34 - Bordj Bou Arreridj", "35 - Boumerdès", "36 - El Tarf", "37 - Tindouf", "38 - Tissemsilt", "39 - El Oued", "40 - Khenchela",
+  "41 - Souk Ahras", "42 - Tipaza", "43 - Mila", "44 - Aïn Defla", "45 - Naâma", "46 - Aïn Témouchent", "47 - Ghardaïa", "48 - Relizane", "49 - El M'Ghair", "50 - El Meniaa",
+  "51 - Ouled Djellal", "52 - Bordj Baji Mokhtar", "53 - Béni Abbès", "54 - Timimoun", "55 - Touggourt", "56 - Djanet", "57 - In Salah", "58 - In Guezzam"
+];
+
 export default function Orders() {
   const { user } = useAuth();
   const isProduction = user?.role === 'production';
@@ -24,7 +33,7 @@ export default function Orders() {
     items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], 
     salesmen: [], 
     discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', 
-    deliveryAddress: '', notes: '', status: 'pending', useStock: false
+    deliveryAddress: '', deliveryWilaya: '', notes: '', status: 'pending', useStock: false
   });
   const [employees, setEmployees] = useState([]);
   const [customerSearch, setCustomerSearch] = useState('');
@@ -102,7 +111,7 @@ export default function Orders() {
         await api.post('/orders', payload);
       }
       setShowModal(false); setEditing(null); setCustomTotal('');
-      setForm({ customerId: '', items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], salesmen: [], discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', notes: '', status: 'pending', useStock: false });
+      setForm({ customerId: '', items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], salesmen: [], discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', deliveryWilaya: '', notes: '', status: 'pending', useStock: false });
       fetchOrders();
     } catch (err) { 
       const errMsg = err.response?.data?.details 
@@ -153,7 +162,7 @@ export default function Orders() {
       salesmen: order.salesmen ? order.salesmen.map(s => ({ salesmanId: s.salesmanId, splitPercentage: s.splitPercentage })) : [],
       discountPercentage: order.discountPercentage || 0,
       advancePayment: order.advancePayment || '', paymentMethod: 'cash', 
-      deliveryAddress: order.deliveryAddress || '', notes: order.notes || '', status: order.status
+      deliveryAddress: order.deliveryAddress || '', deliveryWilaya: order.deliveryWilaya || '', notes: order.notes || '', status: order.status
     });
     setShowModal(true);
   };
@@ -167,8 +176,9 @@ export default function Orders() {
       { value: 'pending', label: 'En attente', color: '#f59e0b' },
       { value: 'in_production', label: 'En fabrication', color: '#3b82f6' },
       { value: 'ready', label: 'Prêt', color: '#10b981' },
-      { value: 'delivered', label: 'Livré', color: '#22c55e' },
-      { value: 'cancelled', label: 'Annulé', color: '#ef4444' },
+      { value: 'delivered', label: 'Livrée', color: '#6366f1' },
+      { value: 'cancelled', label: 'Annulée', color: '#ef4444' },
+      { value: 'problem', label: 'Problème', color: '#f59e0b' }
     ]},
     { key: 'paymentStatus', label: '💰 Paiement', options: [
       { value: 'unpaid', label: 'Non payé', color: '#ef4444' },
@@ -181,8 +191,9 @@ export default function Orders() {
     pending: 'En attente',
     in_production: 'En fabrication',
     ready: 'Prêt',
-    delivered: 'Livré',
-    cancelled: 'Annulé'
+    delivered: 'Livrée',
+    cancelled: 'Annulée',
+    problem: 'Problème',
   };
 
   const handleFilterChange = (text, filters) => {
@@ -223,7 +234,7 @@ export default function Orders() {
               initialSearchText={initialSearch}
             />
             {!isProduction && (
-              <button className="btn btn-primary" onClick={() => { setEditing(null); setCustomerSearch(''); setForm({ customerId: '', items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], salesmen: [], discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', notes: '', status: 'pending', useStock: false }); setShowModal(true); }}>
+              <button className="btn btn-primary" onClick={() => { setEditing(null); setCustomerSearch(''); setForm({ customerId: '', items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], salesmen: [], discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', deliveryWilaya: '', notes: '', status: 'pending', useStock: false }); setShowModal(true); }}>
                 <Plus size={16} /> Nouvelle Commande
               </button>
             )}
@@ -273,7 +284,8 @@ export default function Orders() {
                 <td>
                   {isProduction ? (
                     <div style={{fontSize: '0.85em', color: 'var(--text-secondary)'}}>
-                      {o.deliveryAddress || o.customer?.address || 'Adresse au magasin ou non spécifiée'}
+                      <div style={{fontWeight: 600, color: 'var(--text-primary)'}}>{o.deliveryWilaya || o.customer?.city || 'Wilaya non spécifiée'}</div>
+                      <div>{o.deliveryAddress || o.customer?.address || 'Adresse au magasin ou non spécifiée'}</div>
                     </div>
                   ) : (
                     <>
@@ -567,14 +579,26 @@ export default function Orders() {
                 <option value="pending">En attente</option>
                 <option value="in_production">En fabrication</option>
                 <option value="ready">Prêt</option>
-                <option value="delivered">Livré</option>
-                <option value="cancelled">Annulé</option>
+                <option value="delivered">Livrée</option>
+                <option value="cancelled">Annulée</option>
+                <option value="problem">Problème / Réparation</option>
               </select>
             </div>
           )}
-          <div className="form-group">
-            <label>Adresse de Livraison</label>
-            <textarea className="form-control" placeholder="Adresse complète" value={form.deliveryAddress} onChange={e => setForm({...form, deliveryAddress: e.target.value})} />
+          <div className="form-row">
+            <div className="form-group">
+              <label>Wilaya de Livraison</label>
+              <select className="form-control" value={form.deliveryWilaya} onChange={e => setForm({...form, deliveryWilaya: e.target.value})}>
+                <option value="">Sélectionner une wilaya ou laisser vide (adresse client)</option>
+                {ALGERIAN_WILAYAS.map(w => (
+                  <option key={w} value={w}>{w}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Adresse Détaillée</label>
+              <textarea className="form-control" placeholder="Adresse complète (quartier, rue, etc.)" value={form.deliveryAddress} onChange={e => setForm({...form, deliveryAddress: e.target.value})} rows="1" />
+            </div>
           </div>
           <div className="form-group">
             <label>Notes</label>

@@ -37,10 +37,20 @@ const strictLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// 4. Dashboard Limiter (60 requests per minute - heavy aggregation queries)
+const dashboardLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 60,
+  message: { error: 'Too many dashboard requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 module.exports = {
   generalLimiter,
   authLimiter,
   strictLimiter,
+  dashboardLimiter,
   loginLimiter: authLimiter,
   writeLimiter: strictLimiter,
 };

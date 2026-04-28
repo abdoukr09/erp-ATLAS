@@ -114,6 +114,7 @@ app.use('/api/employees', require('./routes/employees'));
 app.use('/api/worker-types', require('./routes/workerTypes'));
 app.use('/api/locations', require('./routes/locations'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/delivery-primes', require('./routes/deliveryPrimes'));
 
 // Health check (not rate-limited — internal probes need this)
 app.get('/api/health', (req, res) => {
@@ -133,6 +134,10 @@ if (process.env.VERCEL) {
 
   async function initDb() {
     try {
+      try {
+        await sequelize.query(`ALTER TYPE "enum_orders_status" ADD VALUE IF NOT EXISTS 'problem';`);
+        await sequelize.query(`ALTER TYPE "enum_order_items_status" ADD VALUE IF NOT EXISTS 'problem';`);
+      } catch (e) { /* Ignore if types don't exist yet */ }
       await sequelize.sync({ alter: true });
       console.log('✅ Vercel: DB synced');
       // Drop NOT NULL on orderId so internal transfers (no order) work
@@ -158,13 +163,20 @@ if (process.env.VERCEL) {
     return app(req, res);
   };
 } else {
-  sequelize.sync({ alter: true }).then(() => {
-    console.log('✅ Database synced (Altered)');
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
-      console.log(`🔒 Security: Helmet ✅ | Rate Limiting ✅ | Input Validation ✅ | Safe Errors ✅`);
-    });
-  }).catch(err => {
-    console.error('❌ Database sync failed:', err);
-  });
+  (async () => {
+    try {
+      try {
+        await sequelize.query(`ALTER TYPE "enum_orders_status" ADD VALUE IF NOT EXISTS 'problem';`);
+        await sequelize.query(`ALTER TYPE "enum_order_items_status" ADD VALUE IF NOT EXISTS 'problem';`);
+      } catch (e) { /* Ignore */ }
+      await sequelize.sync({ alter: true });
+      console.log('✅ Database synced (Altered)');
+      app.listen(PORT, '0.0.0.0', () => {
+        console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
+        console.log(`🔒 Security: Helmet ✅ | Rate Limiting ✅ | Input Validation ✅ | Safe Errors ✅`);
+      });
+    } catch (err) {
+      console.error('❌ Database sync failed:', err);
+    }
+  })();
 }

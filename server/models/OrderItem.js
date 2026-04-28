@@ -43,7 +43,7 @@ const OrderItem = sequelize.define('OrderItem', {
     defaultValue: 0,
   },
   status: {
-    type: DataTypes.ENUM('pending', 'in_production', 'ready', 'delivered', 'cancelled'),
+    type: DataTypes.ENUM('pending', 'in_production', 'ready', 'delivered', 'cancelled', 'problem'),
     defaultValue: 'pending',
   },
 }, {

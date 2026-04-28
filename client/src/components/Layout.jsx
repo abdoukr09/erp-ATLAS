@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ShoppingCart, Users, Package,
   Factory, Truck, CreditCard, Settings, LogOut, Globe, Book, PackageCheck, Receipt,
   BookOpen, Box, Briefcase, ShieldCheck, Database, Wrench, ClipboardList,
-  Menu, X
+  Menu, X, MapPin
 } from 'lucide-react';
 import logoAtlas from '../assets/logo-atlas.png';
 
@@ -23,6 +23,7 @@ const menuItems = [
   { section: 'Administration', icon: Wrench, label: "Types d'Ouvriers", path: '/worker-types', roles: ['admin'] },
   { section: 'Administration', icon: ClipboardList, label: 'Rapport Journalier', path: '/reports', roles: ['admin'] },
   { section: 'Administration', icon: Receipt, label: 'Tarifs & Coûts', path: '/tariffs', roles: ['admin'] },
+  { section: 'Administration', icon: MapPin, label: 'Primes de Livraison', path: '/delivery-primes', roles: ['admin'] },
   { section: 'Administration', icon: ShieldCheck, label: 'Utilisateurs', path: '/users', roles: ['admin'] },
 ];
 
@@ -60,6 +61,7 @@ export default function Layout({ children }) {
       case '/worker-types': return "Types d'Ouvriers & Tarifs";
       case '/reports': return 'Rapport Journalier';
       case '/tariffs': return 'Suivi des Dépenses';
+      case '/delivery-primes': return 'Primes de Livraison';
       case '/users': return 'Comptes Utilisateurs';
       case '/db-explorer': return 'Maintenance Base de données';
       default: return 'ERP ATLAS';

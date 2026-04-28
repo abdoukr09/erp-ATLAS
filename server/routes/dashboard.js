@@ -1,12 +1,13 @@
 const express = require('express');
 const { Order, Customer, Material, Production, Payment, Delivery, OrderItem } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
+const { dashboardLimiter } = require('../middleware/rateLimiter');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 const router = express.Router();
 
 // GET /api/dashboard/stats - Management and Sales (Sales sees scrubbed data)
-router.get('/stats', authenticate, authorize('admin', 'gerant', 'sales'), async (req, res) => {
+router.get('/stats', dashboardLimiter, authenticate, authorize('admin', 'gerant', 'sales'), async (req, res) => {
   try {
     const totalOrders = await Order.count();
     const pendingOrders = await Order.count({ where: { status: 'pending' } });

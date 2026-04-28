@@ -40,6 +40,18 @@ const Delivery = sequelize.define('Delivery', {
     type: DataTypes.STRING(100),
     allowNull: true,
   },
+  driverId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'employees',
+      key: 'id',
+    },
+  },
+  destWilaya: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
   deliveryDate: {
     type: DataTypes.DATEONLY,
     allowNull: true,

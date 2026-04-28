@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import api from '../api';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Trash2, Pencil, Briefcase, Calculator, Award, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Pencil, Briefcase, Calculator, Award, ArrowRight, Truck } from 'lucide-react';
 
 export default function Employees() {
   const { user } = useAuth();
@@ -69,6 +69,8 @@ export default function Employees() {
   }, 0) || 0;
   // Sales commission for vendeurs
   const totalSalesCommission = totalSalesFinal * (Number(selectedEmployee?.commissionRate || 0) / 100);
+  // Delivery primes for chauffeurs
+  const totalDeliveryPrimes = performanceData.deliveries?.reduce((sum, d) => sum + (Number(d.routePrime || 0)), 0) || 0;
 
   useEffect(() => {
     if (selectedEmployee) {
@@ -96,7 +98,15 @@ export default function Employees() {
 
   const openPaymentModal = () => {
     const isVendeur = selectedEmployee.category === 'Vendeur';
-    const bonus = isVendeur ? Math.round(totalSalesCommission) : Math.round(totalEarnedCommission);
+    const isChauffeur = selectedEmployee.category === 'Chauffeur';
+    let bonus;
+    if (isVendeur) {
+      bonus = Math.round(totalSalesCommission);
+    } else if (isChauffeur) {
+      bonus = Math.round(totalDeliveryPrimes);
+    } else {
+      bonus = Math.round(totalEarnedCommission);
+    }
     setPaymentForm({
         baseAmount: Number(selectedEmployee.baseSalary) || 0,
         bonusAmount: bonus,
@@ -306,6 +316,56 @@ export default function Employees() {
                        </table>
                      </div>
                    )}
+
+                    {/* Delivery Table (Chauffeurs) */}
+                    {selectedEmployee.category === 'Chauffeur' && (
+                      <div>
+                        <h5 style={{fontSize:'0.9rem', marginBottom:5, color:'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6}}>
+                          <Truck size={14} /> Livraisons (Chauffeurs / Livreurs)
+                        </h5>
+                        <table style={{fontSize: '0.85rem'}}>
+                          <thead><tr><th>Date</th><th>Trajet</th><th>Commande(s)</th><th>Prime</th></tr></thead>
+                          <tbody>
+                           {(performanceData.deliveries || []).length > 0 ? (performanceData.deliveries || []).map(d => {
+                             return (
+                               <tr key={d.id}>
+                                 <td>{d.deliveryDate}</td>
+                                 <td>
+                                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                     <span className="badge" style={{ background: 'rgba(100,116,139,0.1)', color: '#64748b', fontSize: '0.8em', padding: '2px 8px' }}>
+                                       {d.sourceLocation?.name || '🏭 Usine'}
+                                     </span>
+                                     <ArrowRight size={12} style={{ color: 'var(--text-muted)' }} />
+                                     <span className="badge" style={{ background: d.destWilaya ? 'rgba(34,197,94,0.1)' : 'rgba(236,72,153,0.1)', color: d.destWilaya ? '#22c55e' : '#ec4899', fontSize: '0.8em', padding: '2px 8px' }}>
+                                       {d.destWilaya || d.destLocation?.name || '🏭 Usine'}
+                                     </span>
+                                   </div>
+                                 </td>
+                                 <td style={{ fontSize: '0.85em' }}>
+                                   {d.deliveryOrders?.length > 0
+                                     ? d.deliveryOrders.map(dO => (
+                                         <div key={dO.id}>#{dO.order?.id} {dO.order?.customer?.name || ''}</div>
+                                       ))
+                                     : d.order ? `#${d.order.id} ${d.order.customer?.name || ''}` : (d.type === 'transfer' ? 'Transfert' : '—')
+                                   }
+                                 </td>
+                                 <td style={{color: d.routePrime > 0 ? 'var(--accent-green)' : 'var(--text-muted)', fontWeight:'bold'}}>
+                                   {d.routePrime > 0 ? `+${Number(d.routePrime).toLocaleString()} DA` : 'Non configuré'}
+                                 </td>
+                               </tr>
+                             );
+                           }) : (
+                             <tr><td colSpan="4" style={{textAlign:'center', color:'var(--text-muted)'}}>Aucune livraison ce mois-ci.</td></tr>
+                           )}
+                          </tbody>
+                        </table>
+                        {(performanceData.deliveries || []).length > 0 && (
+                          <div style={{ textAlign: 'right', marginTop: 8, fontSize: '0.9rem', fontWeight: 700, color: '#22c55e' }}>
+                            Total Primes: {totalDeliveryPrimes.toLocaleString()} DA
+                          </div>
+                        )}
+                      </div>
+                    )}
                  </div>
                )}
              </div>
@@ -388,7 +448,9 @@ export default function Employees() {
              Paie de <b>{selectedMonth}</b>.
              {selectedEmployee?.category === 'Vendeur'
                ? ` Prime calculée à ${selectedEmployee.commissionRate}% sur les ventes.`
-               : ` Prime calculée automatiquement depuis les tarifs de fabrication.`
+               : selectedEmployee?.category === 'Chauffeur'
+                ? ` Prime calculée automatiquement depuis les tarifs de livraison.`
+                : ` Prime calculée automatiquement depuis les tarifs de fabrication.`
              }
           </div>
 
@@ -403,7 +465,9 @@ export default function Employees() {
               <div style={{fontSize:'0.8rem', color:'var(--text-muted)', marginTop: 4}}>
                 {selectedEmployee?.category === 'Vendeur'
                   ? `${selectedEmployee.commissionRate}% de ${totalSalesFinal.toLocaleString()} DA ventes = ${Math.round(totalSalesCommission).toLocaleString()} DA`
-                  : `Tarifs fabrication : ${Math.round(totalEarnedCommission).toLocaleString()} DA`
+                  : selectedEmployee?.category === 'Chauffeur'
+                   ? `${(performanceData.deliveries || []).length} livraisons = ${totalDeliveryPrimes.toLocaleString()} DA`
+                   : `Tarifs fabrication : ${Math.round(totalEarnedCommission).toLocaleString()} DA`
                 }
               </div>
             </div>

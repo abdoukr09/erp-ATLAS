@@ -7,11 +7,15 @@ const Location = sequelize.define('Location', {
     primaryKey: true,
     autoIncrement: true,
   },
-  name: {
-    type: DataTypes.STRING(100),
-    allowNull: false,
-    unique: true,
+ name: {
+  type: DataTypes.STRING(100),
+  allowNull: false,
+  unique: true,
+  validate: {
+    notEmpty: true,
+    len: [2, 100],
   },
+},
   color: {
     type: DataTypes.STRING(20),
     allowNull: true,

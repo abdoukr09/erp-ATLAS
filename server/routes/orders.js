@@ -13,7 +13,7 @@ router.get('/', authenticate, authorize('admin', 'sales', 'gerant', 'production'
     // Define attributes based on role
     const orderAttributes = isFullAccess 
       ? undefined // Include all
-      : ['id', 'customerId', 'deliveryAddress', 'notes', 'orderDate', 'status', 'createdAt'];
+      : ['id', 'customerId', 'deliveryAddress', 'deliveryWilaya', 'notes', 'orderDate', 'status', 'createdAt'];
 
     const orders = await Order.findAll({
       attributes: orderAttributes,
@@ -59,7 +59,7 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), writeLimit
   try {
     const { 
       customerId, items, salesmen, 
-      deliveryAddress, notes, orderDate, discountPercentage, useStock, 
+      deliveryAddress, deliveryWilaya, notes, orderDate, discountPercentage, useStock, 
       advancePayment, paymentMethod 
     } = req.body;
     
@@ -89,6 +89,7 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), writeLimit
       remainingPayment: remainingAmount,
       paymentStatus: remainingAmount <= 0 ? 'fully_paid' : (advanceAmount > 0 ? 'advance_paid' : 'unpaid'),
       deliveryAddress: deliveryAddress || customer.address,
+      deliveryWilaya: deliveryWilaya || customer.city,
       notes, orderDate: orderDate || new Date(),
       status: 'pending'
     }, { transaction: t });
@@ -115,22 +116,35 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), writeLimit
       });
       if (!dbItem) continue;
 
-      const model = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
+      // Lock the model row to prevent race conditions on stock
+      const model = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t, lock: t.LOCK.UPDATE });
       if (!model) continue;
 
       // ATOMIC STOCK FILL: Check if we can take from finished stock first
       if (useStock && Number(model.stock) >= Number(item.quantity || 1)) {
-        await model.update({ stock: Number(model.stock) - Number(item.quantity || 1) }, { transaction: t });
+        // Re-fetch stock inside transaction with lock to ensure atomicity
+        const freshModel = await ProductModel.findByPk(model.id, { transaction: t, lock: t.LOCK.UPDATE });
+        if (Number(freshModel.stock) < Number(item.quantity || 1)) {
+          reservationWarnings.push(`${item.sofaModel}: Stock insuffisant (concurrent update detected)`);
+          continue;
+        }
+        await freshModel.update({ stock: Number(freshModel.stock) - Number(item.quantity || 1) }, { transaction: t });
         await dbItem.update({ status: 'ready' }, { transaction: t });
-        // Create a dummy completed production record for tracking
-        await Production.create({
-          orderId: order.id,
-          orderItemId: dbItem.id,
-          productModelId: model.id,
-          status: 'completed',
-          notes: 'Fidélisation automatique via stock prêt.',
-          completionDate: new Date()
-        }, { transaction: t });
+        // Create a dummy completed production record for tracking (only if not exists)
+        const existingStockProd = await Production.findOne({
+          where: { orderItemId: dbItem.id },
+          transaction: t
+        });
+        if (!existingStockProd) {
+          await Production.create({
+            orderId: order.id,
+            orderItemId: dbItem.id,
+            productModelId: model.id,
+            status: 'completed',
+            notes: 'Fidélisation automatique via stock prêt.',
+            completionDate: new Date()
+          }, { transaction: t });
+        }
         continue; // Skip material reservation for this item
       }
 
@@ -323,10 +337,14 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), validate
       });
 
       for (const item of pendingItems) {
-        const model = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
+        // Lock model row to prevent concurrent stock deductions
+        const model = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t, lock: t.LOCK.UPDATE });
         if (model && Number(model.stock) >= Number(item.quantity)) {
+          // Re-verify stock after locking to prevent race conditions
+          const freshModel = await ProductModel.findByPk(model.id, { transaction: t, lock: t.LOCK.UPDATE });
+          if (Number(freshModel.stock) < Number(item.quantity)) continue; // Skip if stock changed
           // Deduct from finished stock
-          await model.update({ stock: Number(model.stock) - Number(item.quantity) }, { transaction: t });
+          await freshModel.update({ stock: Number(freshModel.stock) - Number(item.quantity) }, { transaction: t });
           await item.update({ status: 'ready' }, { transaction: t });
           
           // Clear material reservations for this order (partial or full)
@@ -348,15 +366,21 @@ router.put('/:id', authenticate, authorize('admin', 'sales', 'gerant'), validate
              }
           }
 
-          // Create/ensure completed production record
-          await Production.create({
-            orderId: order.id,
-            orderItemId: item.id,
-            productModelId: model.id,
-            status: 'completed',
-            notes: 'Rempli manuellement via stock lors de la modification.',
-            completionDate: new Date()
-          }, { transaction: t });
+          // Create/ensure completed production record (only if not exists)
+          const existingProd = await Production.findOne({
+            where: { orderItemId: item.id },
+            transaction: t
+          });
+          if (!existingProd) {
+            await Production.create({
+              orderId: order.id,
+              orderItemId: item.id,
+              productModelId: model.id,
+              status: 'completed',
+              notes: 'Rempli manuellement via stock lors de la modification.',
+              completionDate: new Date()
+            }, { transaction: t });
+          }
         }
       }
     }

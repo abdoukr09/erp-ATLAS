@@ -13,7 +13,12 @@ const deductMaterials = async (orderItemId, productModelId, targetQuantity, t) =
     const { OrderItem } = require('../models');
     const item = await OrderItem.findByPk(orderItemId, { transaction: t });
     if (item) {
-      targetModel = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
+      // Prefer productModelId if available, fallback to name lookup
+      if (item.productModelId) {
+        targetModel = await ProductModel.findByPk(item.productModelId, { transaction: t });
+      } else {
+        targetModel = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
+      }
     }
   } else if (productModelId) {
     targetModel = await ProductModel.findByPk(productModelId, { transaction: t });
@@ -112,15 +117,22 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
       return res.status(400).json({ error: 'Order Item ID or Product Model ID is required.' });
     }
 
-    // STRICT DUPLICATE GUARD: Prevent creating multiple productions for the same order item
+    // ALLOW DUPLICATE ONLY IF IT WAS A PROBLEM (REPAIR)
     if (orderItemId) {
-      const existingProd = await Production.findOne({ 
-        where: { orderItemId }, 
+      const existingIncompleteProd = await Production.findOne({ 
+        where: { orderItemId, status: { [Op.ne]: 'completed' } }, 
         transaction: t 
       });
-      if (existingProd) {
+      if (existingIncompleteProd) {
         await t.rollback();
-        return res.status(409).json({ error: 'Une fabrication existe déjà pour cet article de commande. Duplication interdite.' });
+        return res.status(409).json({ error: 'Une fabrication est déjà en cours pour cet article.' });
+      }
+
+      // Check if it's already done and NOT a problem (to prevent double production of non-problem items)
+      const item = await OrderItem.findByPk(orderItemId, { transaction: t });
+      if (item && item.status !== 'pending' && item.status !== 'problem') {
+        await t.rollback();
+        return res.status(409).json({ error: 'Cet article est déjà prêt ou livré.' });
       }
     }
 
@@ -132,11 +144,11 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
       const { OrderItem } = require('../models');
       const item = await OrderItem.findByPk(orderItemId, { transaction: t });
       if (item) {
-        if (item.status === 'pending') {
+        if (item.status === 'pending' || item.status === 'problem') {
           await item.update({ status: 'in_production' }, { transaction: t });
           const { Order } = require('../models');
           const parentOrder = await Order.findByPk(item.orderId, { transaction: t });
-          if (parentOrder && parentOrder.status === 'pending') {
+          if (parentOrder && (parentOrder.status === 'pending' || parentOrder.status === 'problem')) {
              await parentOrder.update({ status: 'in_production' }, { transaction: t });
           }
         }
@@ -447,7 +459,12 @@ const revertMaterials = async (orderItemId, productModelId, targetQuantity, t) =
     const { OrderItem } = require('../models');
     const item = await OrderItem.findByPk(orderItemId, { transaction: t });
     if (item) {
-      targetModel = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
+      // Prefer productModelId if available, fallback to name lookup
+      if (item.productModelId) {
+        targetModel = await ProductModel.findByPk(item.productModelId, { transaction: t });
+      } else {
+        targetModel = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
+      }
     }
   } else if (productModelId) {
     targetModel = await ProductModel.findByPk(productModelId, { transaction: t });

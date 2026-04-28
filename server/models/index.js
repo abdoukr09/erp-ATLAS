@@ -22,6 +22,8 @@ const WorkerTypeTariff = require('./WorkerTypeTariff');
 const Location = require('./Location');
 const LocationStock = require('./LocationStock');
 const TransferDeliveryItem = require('./TransferDeliveryItem');
+const DeliveryRoutePrime = require('./DeliveryRoutePrime');
+const DeliveryOrder = require('./DeliveryOrder');
 
 // Associations
 Customer.hasMany(Order, { foreignKey: 'customerId', as: 'orders', onDelete: 'SET NULL' });
@@ -115,6 +117,22 @@ TransferDeliveryItem.belongsTo(Delivery, { foreignKey: 'deliveryId', as: 'delive
 ProductModel.hasMany(TransferDeliveryItem, { foreignKey: 'productModelId', as: 'transferInvolvements' });
 TransferDeliveryItem.belongsTo(ProductModel, { foreignKey: 'productModelId', as: 'productModel' });
 
+// Delivery Driver (Livreur) Associations
+Employee.hasMany(Delivery, { foreignKey: 'driverId', as: 'driverDeliveries' });
+Delivery.belongsTo(Employee, { foreignKey: 'driverId', as: 'driverEmployee' });
+
+// Delivery ↔ Order (Many-to-Many via DeliveryOrder)
+Delivery.hasMany(DeliveryOrder, { foreignKey: 'deliveryId', as: 'deliveryOrders', onDelete: 'CASCADE' });
+DeliveryOrder.belongsTo(Delivery, { foreignKey: 'deliveryId', as: 'delivery' });
+Order.hasMany(DeliveryOrder, { foreignKey: 'orderId', as: 'deliveryLinks', onDelete: 'CASCADE' });
+DeliveryOrder.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
+
+// Delivery Route Prime Associations
+Location.hasMany(DeliveryRoutePrime, { foreignKey: 'sourceLocationId', as: 'sourceRoutePrimes' });
+DeliveryRoutePrime.belongsTo(Location, { foreignKey: 'sourceLocationId', as: 'sourceLocation' });
+Location.hasMany(DeliveryRoutePrime, { foreignKey: 'destLocationId', as: 'destRoutePrimes' });
+DeliveryRoutePrime.belongsTo(Location, { foreignKey: 'destLocationId', as: 'destLocation' });
+
 module.exports = {
   User,
   Customer,
@@ -139,7 +157,9 @@ module.exports = {
   WorkerTypeTariff,
   Location,
   LocationStock,
-  TransferDeliveryItem
+  TransferDeliveryItem,
+  DeliveryRoutePrime,
+  DeliveryOrder
 };
 
 // ─── LEVEL 10: Enterprise Audit Trail (Global Hooks) ───────────────────────
