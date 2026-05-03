@@ -2,6 +2,7 @@ const express = require('express');
 const { Production, Order, Customer, ProductModel, OrderItem, ProductionWorker, Employee, MaterialReservation, WorkerType, WorkerTypeTariff, LocationStock } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
 const sequelize = require('../config/database');
+const { Op } = require('sequelize');
 const router = express.Router();
 
 // Helper to deduct materials
@@ -341,7 +342,6 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
     if (newStatus === 'completed' && production.status !== 'completed') {
       if (production.orderItemId) {
          // Check if all production tasks for this OrderItem are complete
-         const { Op } = require('sequelize');
          const otherTasksCount = await Production.count({
            where: {
              orderItemId: production.orderItemId,

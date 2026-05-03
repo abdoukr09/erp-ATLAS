@@ -2,6 +2,7 @@ const express = require('express');
 const { User } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
 const { validate, schemas } = require('../middleware/validate');
+const { Op } = require('sequelize');
 const router = express.Router();
 
 // GET /api/users - list all users (admin only)
@@ -14,7 +15,7 @@ router.get('/', authenticate, authorize('admin'), async (req, res) => {
     const now = new Date();
     const activeTokens = await RefreshToken.findAll({
       where: {
-        expiresAt: { [require('sequelize').Op.gt]: now }
+        expiresAt: { [Op.gt]: now }
       }
     });
     const activeUserIds = new Set(activeTokens.map(t => t.userId));
@@ -62,7 +63,6 @@ router.put('/:id', authenticate, authorize('admin'), validate(schemas.updateUser
         return res.status(400).json({ error: 'Cannot deactivate your own account.' });
       }
       if (user.role === 'admin') {
-        const { Op } = require('sequelize');
         const activeAdmins = await User.count({
           where: { role: 'admin', active: true, id: { [Op.ne]: user.id } }
         });
