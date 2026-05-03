@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ShoppingCart, Users, Package,
   Factory, Truck, CreditCard, Settings, LogOut, Globe, Book, PackageCheck, Receipt,
   BookOpen, Box, Briefcase, ShieldCheck, Database, Wrench, ClipboardList,
-  Menu, X, MapPin
+  Menu, X, MapPin, Sun, Moon
 } from 'lucide-react';
 import logoAtlas from '../assets/logo-atlas.png';
 
@@ -31,6 +31,16 @@ export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
 
   // Close menu when route changes
   useEffect(() => {
@@ -149,6 +159,9 @@ export default function Layout({ children }) {
             <h2 className="topbar-title">{getPageTitle(location.pathname)}</h2>
           </div>
           <div className="topbar-actions">
+            <button className="btn-icon" onClick={toggleTheme} title="Basculer le thème" style={{ marginRight: '8px' }}>
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <span className={`badge badge-${user?.role}`}>{user?.role}</span>
           </div>
         </header>

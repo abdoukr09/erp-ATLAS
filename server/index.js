@@ -138,7 +138,7 @@ if (process.env.VERCEL) {
         await sequelize.query(`ALTER TYPE "enum_orders_status" ADD VALUE IF NOT EXISTS 'problem';`);
         await sequelize.query(`ALTER TYPE "enum_order_items_status" ADD VALUE IF NOT EXISTS 'problem';`);
       } catch (e) { /* Ignore if types don't exist yet */ }
-      await sequelize.sync({ alter: true });
+      await sequelize.sync(); // No alter in production — use migration scripts for schema changes
       console.log('✅ Vercel: DB synced');
       // Drop NOT NULL on orderId so internal transfers (no order) work
       try {

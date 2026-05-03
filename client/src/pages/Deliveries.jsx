@@ -646,8 +646,17 @@ export default function Deliveries() {
                               </span>
                             )) || o.sofaModel}
                           </span>
-                          <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: '0.85em' }}>
-                            ({o.customer?.name})
+                          <span style={{ 
+                            marginLeft: 8, 
+                            color: isSelected ? '#3730a3' : '#475569', 
+                            fontSize: '0.9em', 
+                            fontWeight: 700,
+                            background: isSelected ? 'rgba(255,255,255,0.5)' : 'rgba(241,245,249,0.5)',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                          }}>
+                            👤 {o.customer?.name}
                           </span>
                           <span className="badge badge-ready" style={{ marginLeft: 8, fontSize: '0.7em', padding: '2px 6px', background: o.status === 'partially_delivered' ? '#fef3c7' : '#dcfce7', color: o.status === 'partially_delivered' ? '#92400e' : '#166534' }}>
                             {o.status === 'partially_delivered' ? 'Partielle' : 'Prêt'}
