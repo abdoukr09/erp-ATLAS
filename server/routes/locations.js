@@ -1,7 +1,6 @@
 const express = require('express');
 const { Location, LocationStock, ProductModel } = require('../models');
 const { authenticate, authorize } = require('../middleware/auth');
-const { Op } = require('sequelize');
 const router = express.Router();
 
 // GET all locations
@@ -75,7 +74,7 @@ router.delete('/:id', authenticate, authorize('admin', 'gerant'), async (req, re
     if (!location) return res.status(404).json({ error: 'Location not found.' });
 
     // Check if there is stock in this location
-    const stockCount = await LocationStock.count({ where: { locationId: location.id, quantity: { [Op.gt]: 0 } } });
+    const stockCount = await LocationStock.count({ where: { locationId: location.id, quantity: { [require('sequelize').Op.gt]: 0 } } });
     if (stockCount > 0) {
       return res.status(400).json({ error: 'Cannot delete location with existing stock.' });
     }

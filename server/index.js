@@ -33,7 +33,8 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:5001',
-  'http://172.20.10.2:5173'
+  'http://172.20.10.2:5173',
+  'http://172.20.10.3:5173'
 ];
 if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
 
@@ -41,6 +42,11 @@ if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
+    
+    // Allow any origin in local development to simplify multi-device testing
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
     
     // Explicit matches
     if (allowedOrigins.includes(origin)) return callback(null, true);

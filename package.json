@@ -1,0 +1,15 @@
+{
+  "name": "erp-canape",
+  "version": "1.0.0",
+  "description": "ERP LE CANAPÉ",
+  "private": true,
+  "scripts": {
+    "install-all": "npm install && npm install --prefix client && npm install --prefix server",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "dev": "node run.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
