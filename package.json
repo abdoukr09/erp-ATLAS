@@ -10,6 +10,7 @@
     "dev": "node run.js",
     "pull-db": "node server/pull_from_supabase.js",
     "import-db": "node server/import_mysql_json.js",
+    "init-supabase": "node server/init_supabase_schema.js",
     "push-db": "node server/push_to_supabase.js"
   },
   "devDependencies": {
