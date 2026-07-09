@@ -7,7 +7,9 @@
     "install-all": "npm install && npm install --prefix client && npm install --prefix server",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
-    "dev": "node run.js"
+    "dev": "node run.js",
+    "pull-db": "node server/pull_from_supabase.js",
+    "import-db": "node server/import_mysql_json.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
