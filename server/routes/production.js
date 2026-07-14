@@ -90,14 +90,12 @@ router.get('/', authenticate, authorize('admin', 'production', 'gerant'), async 
   }
 });
 
-// POST /api/production — creates in pending, NO material deduction yet
+// POST /api/production — creates one record per unit
 router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async (req, res) => {
-  console.log('[PROD-CREATE v3] Body:', JSON.stringify({ startDate: req.body.startDate, startTime: req.body.startTime, orderItemId: req.body.orderItemId }));
-  const t = await Production.sequelize.transaction();
+  const t = await sequelize.transaction();
   try {
     let { orderItemId, productModelId, notes, startDate, tasks, quantity } = req.body;
     
-    // Improved Case-Insensitive Date Sanitation
     const sanitizeDate = (d) => {
       if (!d || d === '' || (typeof d === 'string' && d.toLowerCase() === 'invalid date')) return null;
       const dateObj = new Date(d);
@@ -108,7 +106,6 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
     if (!orderItemId || orderItemId === '' || orderItemId === 'null') orderItemId = null;
     if (!productModelId || productModelId === '' || productModelId === 'null') productModelId = null;
 
-    // Convert to integers to ensure they aren't invalid strings trying to insert into an INT column
     if (orderItemId !== null) orderItemId = parseInt(orderItemId, 10) || null;
     if (productModelId !== null) productModelId = parseInt(productModelId, 10) || null;
     startDate = sanitizeDate(startDate);
@@ -118,145 +115,87 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
       return res.status(400).json({ error: 'Order Item ID or Product Model ID is required.' });
     }
 
-    // ALLOW DUPLICATE ONLY IF IT WAS A PROBLEM (REPAIR)
-    if (orderItemId) {
-      const existingIncompleteProd = await Production.findOne({ 
-        where: { orderItemId, status: { [Op.ne]: 'completed' } }, 
-        transaction: t 
-      });
-      if (existingIncompleteProd) {
-        await t.rollback();
-        return res.status(409).json({ error: 'Une fabrication est déjà en cours pour cet article.' });
-      }
+    let basePrice = null;
+    let orderId = null;
+    let numToCreate = parseInt(quantity, 10) || 1; // default for stock production
 
-      // Check if it's already done and NOT a problem (to prevent double production of non-problem items)
+    if (orderItemId) {
       const item = await OrderItem.findByPk(orderItemId, { transaction: t });
-      if (item && item.status !== 'pending' && item.status !== 'problem') {
+      if (!item) { await t.rollback(); return res.status(404).json({ error: 'Article non trouvé.' }); }
+
+      if (item.status !== 'pending' && item.status !== 'problem' && item.status !== 'in_production') {
         await t.rollback();
         return res.status(409).json({ error: 'Cet article est déjà prêt ou livré.' });
       }
-    }
 
-    let basePrice = null;
-    let finalQuantity = quantity || 1;
-    let orderId = null;
+      // Count how many production records already exist for this item
+      const existingCount = await Production.count({ where: { orderItemId }, transaction: t });
+      // How many more can we create?
+      const remaining = item.quantity - existingCount;
+      if (remaining <= 0) {
+        await t.rollback();
+        return res.status(409).json({ error: 'Toutes les unités de cet article sont déjà en fabrication.' });
+      }
+      // Create only the remaining ones (don't exceed item quantity)
+      numToCreate = remaining;
 
-    if (orderItemId) {
-      const { OrderItem } = require('../models');
-      const item = await OrderItem.findByPk(orderItemId, { transaction: t });
-      if (item) {
-        if (item.status === 'pending' || item.status === 'problem') {
-          await item.update({ status: 'in_production' }, { transaction: t });
-          const { Order } = require('../models');
-          const parentOrder = await Order.findByPk(item.orderId, { transaction: t });
-          if (parentOrder && (parentOrder.status === 'pending' || parentOrder.status === 'problem')) {
-             await parentOrder.update({ status: 'in_production' }, { transaction: t });
-          }
+      basePrice = item.unitPrice;
+      orderId = item.orderId;
+
+      if (item.status === 'pending' || item.status === 'problem') {
+        await item.update({ status: 'in_production' }, { transaction: t });
+        const parentOrder = await Order.findByPk(item.orderId, { transaction: t });
+        if (parentOrder && (parentOrder.status === 'pending' || parentOrder.status === 'problem')) {
+           await parentOrder.update({ status: 'in_production' }, { transaction: t });
         }
-        basePrice = item.unitPrice; 
-        finalQuantity = item.quantity;
-        orderId = item.orderId;
       }
     } else if (productModelId) {
       const pm = await ProductModel.findByPk(productModelId, { transaction: t });
-      if (pm) {
-        basePrice = pm.basePrice;
-      }
+      if (pm) basePrice = pm.basePrice;
     }
 
-    const { destLocationId } = req.body;
+    // Create one Production record per unit
+    console.log(`[PROD-CREATE] Creating ${numToCreate} production record(s) for orderItemId=${orderItemId}, productModelId=${productModelId}`);
 
-    // Default to a single generic task if UI didn't send an array (fallback for old UI)
-    const assignments = (tasks && tasks.length > 0) ? tasks : [{
-       stage: req.body.stage || 'fabrication',
-       worker: req.body.worker,
-       completedById: req.body.completedById || null,
-       taskName: 'Fabrication Globale',
-       commissionType: 'percentage',
-       commissionValue: 0
-    }];
-
-    const now = new Date();
-    const currentStatus = req.body.status || 'pending';
-    
-    // Auto-set start time if created directly in progress
-    const autoStartDate = currentStatus === 'in_progress' ? now.toISOString().split('T')[0] : (startDate || null);
-    const autoStartTime = currentStatus === 'in_progress' ? now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : (req.body.startTime || null);
-
-    // 1. Create ONE Production Record
-    console.log('[PROD-CREATE-PAYLOAD] insert payload:', { orderId, orderItemId, productModelId, typeProductModel: typeof productModelId });
-    const production = await Production.create({
-       orderId,
-       orderItemId,
-       productModelId,
-       stage: assignments[0]?.stage || 'fabrication', // Use first stage as fallback
-       worker: assignments.map(a => a.workerName || a.worker || '').filter(Boolean).join(', '), // Comma-separated names for backwards-compat!
-       notes,
-       startDate: autoStartDate,
-       startTime: autoStartTime,
-       status: currentStatus,
-       materialsDeducted: false,
-       basePrice: basePrice,
-       quantity: finalQuantity,
-       destLocationId: destLocationId || null,
-       taskName: assignments[0]?.taskName || 'Fabrication'
-    }, { transaction: t });
-
-    // 2. Create Multiple ProductionWorker Records
-    for (const task of assignments) {
-       let commissionType = task.commissionType;
-       let commissionValue = task.commissionValue;
-       const workerId = task.completedById || task.workerId;
-       const workerTypeId = task.workerTypeId || null;
-       
-       // Auto-lookup tariff from WorkerTypeTariff if workerTypeId and productModelId are available
-       if (workerTypeId && (!commissionValue || commissionValue === 0)) {
-          // Determine the product model ID for tariff lookup
-          let tariffProductModelId = task.componentModelId || productModelId;
-          if (!tariffProductModelId && orderItemId) {
-            const item = await OrderItem.findByPk(orderItemId, { transaction: t });
-            if (item) {
-              const pm = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t });
-              if (pm) tariffProductModelId = pm.id;
+    const createdProductions = [];
+    for (let i = 0; i < numToCreate; i++) {
+        const production = await Production.create({
+           orderId, orderItemId, productModelId,
+           stage: req.body.stage || 'fabrication',
+           worker: (tasks && tasks[0]?.workerName) || req.body.worker || '',
+           notes, startDate,
+           status: req.body.status || 'pending',
+           materialsDeducted: false,
+           basePrice, quantity: 1,
+           destLocationId: req.body.destLocationId || null,
+           taskName: (tasks && tasks[0]?.taskName) || 'Fabrication'
+        }, { transaction: t });
+        
+        if (tasks && tasks.length > 0) {
+            for (const task of tasks) {
+                const workerId = task.completedById || task.workerId;
+                if (workerId) {
+                  await ProductionWorker.create({
+                      productionId: production.id,
+                      workerId,
+                      workerTypeId: task.workerTypeId || null,
+                      componentModelId: task.componentModelId || null,
+                      componentIndex: task.componentIndex !== undefined ? task.componentIndex : (task._compIdx !== undefined ? task._compIdx : 0),
+                      commissionType: task.commissionType || 'fixed',
+                      commissionValue: task.commissionValue || 0
+                  }, { transaction: t });
+                }
             }
-          }
-          
-          if (tariffProductModelId) {
-            const tariff = await WorkerTypeTariff.findOne({
-              where: { workerTypeId, productModelId: tariffProductModelId },
-              transaction: t
-            });
-            if (tariff) {
-              commissionType = tariff.paymentType;
-              commissionValue = Number(tariff.amount || 0);
-            }
-          }
-       }
-       
-       // No more fallback to old employee commissionRate — tariffs are the source of truth
-
-       if (workerId) {
-         await ProductionWorker.create({
-            productionId: production.id,
-            workerId: workerId,
-            workerTypeId: workerTypeId,
-            componentModelId: task.componentModelId || null,
-            componentIndex: task.componentIndex !== undefined ? task.componentIndex : (task._compIdx !== undefined ? task._compIdx : 0),
-            commissionType: commissionType || 'fixed',
-            commissionValue: commissionValue || 0
-         }, { transaction: t });
-       }
+        }
+        createdProductions.push(production);
     }
 
     await t.commit();
-    res.status(201).json(production);
+    // Return array of created productions
+    res.status(201).json(createdProductions);
   } catch (error) {
     if (t && !t.finished) await t.rollback();
-    // Catch the database-level unique constraint (race-condition proof)
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(409).json({ error: 'Une fabrication existe déjà pour cet article. Rafraîchissez la page.' });
-    }
-    res.status(500).json({ error: 'Server error during production initialization: ' + error.message });
+    res.status(500).json({ error: 'Server error: ' + error.message });
   }
 });
 
@@ -320,8 +259,8 @@ router.put('/:id', authenticate, authorize('admin', 'production', 'gerant'), asy
 
     // Deduct materials when moving to in_progress or completed
     if (needsDeduction) {
-      let qty = 1;
-      if (production.orderItem) qty = production.orderItem.quantity;
+      // Each production record = 1 unit, so deduct for 1 unit
+      const qty = 1;
       try {
         const deducted = await deductMaterials(production.orderItemId, production.productModelId, qty, t);
         req.body.materialsDeducted = deducted;

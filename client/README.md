@@ -1,5 +1,19 @@
 # React + Vite
 
+## 🚀 Comment démarrer l'application (ERP LE CANAPÉ)
+
+Pour lancer le serveur et le client en même temps, placez-vous à la racine du projet (`erp-ATLAS`) et exécutez la commande suivante :
+
+```bash
+npm run dev
+```
+
+*(Si c'est la première fois ou après une mise à jour, n'oubliez pas d'installer les dépendances avec `npm run install-all`)*
+
+**Lien pour accéder à l'application :**
+👉 **[http://localhost:5173](http://localhost:5173)** (Port par défaut de Vite)
+
+---
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

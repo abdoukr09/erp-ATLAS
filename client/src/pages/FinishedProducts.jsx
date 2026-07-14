@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
-import { Box, MapPin, Settings } from 'lucide-react';
+import { Box, MapPin, Settings, PackageCheck } from 'lucide-react';
 import SmartSearch from '../components/SmartSearch';
 
 export default function FinishedProducts() {
@@ -18,11 +18,9 @@ export default function FinishedProducts() {
   const [stockForm, setStockForm] = useState({ quantity: '' });
 
   // Multi-location state
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState('ready_orders');
   const [locations, setLocations] = useState([]);
   const [locationStocks, setLocationStocks] = useState([]);
-  const [locationForm, setLocationForm] = useState({ name: '', color: '#3b82f6' });
-  const [editingLocation, setEditingLocation] = useState(null);
 
   // Transfer state
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -77,20 +75,6 @@ export default function FinishedProducts() {
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
   };
 
-  const handleLocationSubmit = async (e) => {
-    if (e) e.preventDefault();
-    if (!locationForm.name) return;
-    try {
-      if (editingLocation) {
-        await api.put(`/locations/${editingLocation.id}`, locationForm);
-      } else {
-        await api.post('/locations', locationForm);
-      }
-      setEditingLocation(null);
-      setLocationForm({ name: '', color: '#3b82f6' });
-      fetchLocationData();
-    } catch (err) { alert(err.response?.data?.error || 'Error'); }
-  };
 
   const handleTransferSubmit = async () => {
     try {
@@ -101,13 +85,7 @@ export default function FinishedProducts() {
     } catch (err) { alert(err.response?.data?.error || 'Erreur lors du transfert'); }
   };
 
-  const deleteLocation = async (id) => {
-    if (!window.confirm('Supprimer cet emplacement ?')) return;
-    try {
-      await api.delete(`/locations/${id}`);
-      fetchLocationData();
-    } catch (err) { alert(err.response?.data?.error || 'Error'); }
-  };
+
 
   // Filters for Vue Générale: no location filter (it's meaningless in catalog view)
   const generalFilters = [
@@ -124,8 +102,16 @@ export default function FinishedProducts() {
     }
   ];
 
-  // Filters for Par Emplacement: both production state AND location
+  // Filters for Par Emplacement - location filter first, then production state
   const localFilters = [
+    {
+      key: 'location',
+      label: '📍 Emplacement',
+      options: [
+        { value: 'usine', label: 'Usine (Central)', color: '#64748b' },
+        ...locations.map(loc => ({ value: loc.id.toString(), label: loc.name, color: loc.color }))
+      ]
+    },
     {
       key: 'prodState',
       label: 'État de Production',
@@ -135,14 +121,6 @@ export default function FinishedProducts() {
         { value: 'zero_rupture', label: '0 Stock + Matières en Rupture', color: '#f59e0b' },
         { value: 'available_safe', label: 'En Stock + Matières OK', color: '#22c55e' },
         { value: 'stock_rupture', label: 'En Stock + Matières en Rupture', color: '#ef4444' },
-      ]
-    },
-    {
-      key: 'location',
-      label: '📍 Emplacement',
-      options: [
-        { value: 'usine', label: 'Usine (Central)', color: '#64748b' },
-        ...locations.map(loc => ({ value: loc.id.toString(), label: loc.name, color: loc.color }))
       ]
     }
   ];
@@ -199,25 +177,25 @@ export default function FinishedProducts() {
     <div className="page-transition">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className={`btn ${activeTab === 'general' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setActiveTab('general')}>Vue Générale & Catalog</button>
+          <button className={`btn ${activeTab === 'ready_orders' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setActiveTab('ready_orders')}><PackageCheck size={16} /> Commandes Prêtes</button>
+          <button className={`btn ${activeTab === 'general' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setActiveTab('general')}>Stock des Modèles</button>
           <button className={`btn ${activeTab === 'local' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setActiveTab('local')}><MapPin size={16} /> Par Emplacement</button>
-          <button className={`btn ${activeTab === 'manage' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setActiveTab('manage')}><Settings size={16} /> Gestion des Emplacements</button>
         </div>
       </div>
 
       <div style={{ marginBottom: '16px' }}>
         {activeTab === 'general' && (
-          <SmartSearch filters={generalFilters} onFilterChange={handleFilterChange} placeholder="Rechercher par modèle, client..." />
+          <SmartSearch filters={generalFilters} onFilterChange={handleFilterChange} placeholder="Rechercher un modèle..." />
+        )}
+        {activeTab === 'ready_orders' && (
+          <SmartSearch filters={[]} onFilterChange={handleFilterChange} placeholder="Rechercher par modèle, client..." />
         )}
         {activeTab === 'local' && (
-          <SmartSearch filters={localFilters} onFilterChange={handleFilterChange} placeholder="Rechercher par modèle ou emplacement..." />
-        )}
-        {activeTab === 'manage' && (
-          <SmartSearch filters={[]} onFilterChange={handleFilterChange} placeholder="Rechercher un emplacement..." />
+          <SmartSearch filters={localFilters} onFilterChange={handleFilterChange} placeholder="Rechercher par modèle..." />
         )}
       </div>
 
-      {activeTab === 'general' && (
+      {activeTab === 'ready_orders' && (
         <div className="table-container">
           <div className="table-header"><h2>Commandes Prêtes ({filteredOrders.length})</h2></div>
           <table>
@@ -235,7 +213,12 @@ export default function FinishedProducts() {
               )) : <tr><td colSpan="6" className="table-empty">Aucune commande prête</td></tr>}
             </tbody>
           </table>
-          <div className="table-header" style={{ marginTop: '30px' }}><h2>Stock de Modèles (Catalog) ({filteredModels.length})</h2></div>
+        </div>
+      )}
+
+      {activeTab === 'general' && (
+        <div className="table-container">
+          <div className="table-header"><h2>Stock des Modèles ({filteredModels.length})</h2></div>
           <table>
             <thead><tr><th>Modèle</th><th>Catégorie</th><th>Capacité de Prod.</th><th>Total Entreprise</th><th>Dont à l'Usine</th><th>Prix Base</th></tr></thead>
             <tbody>
@@ -304,47 +287,6 @@ export default function FinishedProducts() {
         </div>
       )}
 
-      {activeTab === 'manage' && (
-        <div className="table-container">
-          <div className="table-header"><h2>Gestion des Emplacements</h2></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', padding: '20px' }}>
-            <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-              <h3>{editingLocation ? 'Modifier l\'emplacement' : 'Créer un nouvel emplacement'}</h3>
-              <form onSubmit={handleLocationSubmit} style={{ marginTop: '20px' }}>
-                <div className="form-group" style={{ marginBottom: 20 }}>
-                  <label>Nom de l'emplacement (Showroom, Dépôt...)</label>
-                  <input className="form-control" placeholder="ex: Showroom Alger" value={locationForm.name} onChange={e => setLocationForm({...locationForm, name: e.target.value})} required />
-                </div>
-                <div className="form-group" style={{ marginBottom: 20 }}>
-                  <label>Couleur d'identification</label>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <input type="color" value={locationForm.color} onChange={e => setLocationForm({...locationForm, color: e.target.value})} style={{ width: 50, height: 40, border: 'none', padding: 0 }} />
-                    <input className="form-control" value={locationForm.color} onChange={e => setLocationForm({...locationForm, color: e.target.value})} style={{ flex: 1 }} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{editingLocation ? "Mettre à jour" : "Créer"}</button>
-                  {editingLocation && <button type="button" className="btn btn-outline" onClick={() => { setEditingLocation(null); setLocationForm({name:'', color:'#3b82f6'}); }}>Annuler</button>}
-                </div>
-              </form>
-            </div>
-            <div style={{ background: 'var(--bg-primary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-              <h3>Emplacements Existants</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
-                {locations.map(loc => (
-                  <div key={loc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-color)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><div style={{ width: 16, height: 16, borderRadius: '50%', background: loc.color }} /><span style={{ fontWeight: 600 }}>{loc.name}</span></div>
-                    <div className="action-buttons">
-                      <button type="button" className="btn-icon edit" onClick={() => { setEditingLocation(loc); setLocationForm({name: loc.name, color: loc.color}); }}><Settings size={14} /></button>
-                      <button type="button" className="btn-icon danger" onClick={() => deleteLocation(loc.id)}><Box size={14} /></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showStockModal && activeModel && (
         <Modal title={`Ajuster Stock Global (${activeModel.name})`} onClose={() => setShowStockModal(false)} onSubmit={handleStockSubmit}>

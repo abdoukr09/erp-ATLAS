@@ -21,6 +21,7 @@ const menuItems = [
   { section: 'Opérations', icon: Truck, label: 'Livraisons', path: '/deliveries', roles: ['admin', 'delivery', 'gerant'] },
   { section: 'Administration', icon: Briefcase, label: 'Personnel & Paie', path: '/employees', roles: ['admin', 'gerant'] },
   { section: 'Administration', icon: Wrench, label: "Types d'Ouvriers", path: '/worker-types', roles: ['admin'] },
+  { section: 'Administration', icon: MapPin, label: 'Gestion des Emplacements', path: '/locations', roles: ['admin'] },
   { section: 'Administration', icon: ClipboardList, label: 'Rapport Journalier', path: '/reports', roles: ['admin'] },
   { section: 'Administration', icon: Receipt, label: 'Tarifs & Coûts', path: '/tariffs', roles: ['admin'] },
   { section: 'Administration', icon: MapPin, label: 'Primes de Livraison', path: '/delivery-primes', roles: ['admin'] },

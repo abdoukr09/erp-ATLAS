@@ -94,41 +94,37 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), writeLimit
       status: 'pending'
     }, { transaction: t });
 
+    // ── Expand each requested line into ONE OrderItem per physical unit ──────
+    // Each unit becomes its own product (own id) so it can later get its own
+    // production (own id), while all units keep sharing a single order id.
+    const unitItems = [];
     for (const item of items) {
-       await OrderItem.create({
-         orderId: order.id,
-         sofaModel: item.sofaModel,
-         quantity: item.quantity || 1,
-         unitPrice: item.unitPrice || 0,
-         discountPercentage: item.discountPercentage || 0,
-         fabric: item.fabric || '',
-         color: item.color || '',
-         status: 'pending'
-       }, { transaction: t });
+       const units = Math.max(1, parseInt(item.quantity, 10) || 1);
+       for (let u = 0; u < units; u++) {
+         const created = await OrderItem.create({
+           orderId: order.id,
+           sofaModel: item.sofaModel,
+           quantity: 1,
+           unitPrice: item.unitPrice || 0,
+           discountPercentage: item.discountPercentage || 0,
+           fabric: item.fabric || '',
+           color: item.color || '',
+           status: 'pending'
+         }, { transaction: t });
+         unitItems.push(created);
+       }
     }
 
     // ── Material Reservation & Stock Deduction ────────────────────────────
     const reservationWarnings = [];
-    for (const item of items) {
-      const dbItem = await OrderItem.findOne({ 
-        where: { orderId: order.id, sofaModel: item.sofaModel, status: 'pending' },
-        transaction: t 
-      });
-      if (!dbItem) continue;
-
+    for (const dbItem of unitItems) {
       // Lock the model row to prevent race conditions on stock
-      const model = await ProductModel.findOne({ where: { name: item.sofaModel }, transaction: t, lock: t.LOCK.UPDATE });
+      const model = await ProductModel.findOne({ where: { name: dbItem.sofaModel }, transaction: t, lock: t.LOCK.UPDATE });
       if (!model) continue;
 
-      // ATOMIC STOCK FILL: Check if we can take from finished stock first
-      if (useStock && Number(model.stock) >= Number(item.quantity || 1)) {
-        // Re-fetch stock inside transaction with lock to ensure atomicity
-        const freshModel = await ProductModel.findByPk(model.id, { transaction: t, lock: t.LOCK.UPDATE });
-        if (Number(freshModel.stock) < Number(item.quantity || 1)) {
-          reservationWarnings.push(`${item.sofaModel}: Stock insuffisant (concurrent update detected)`);
-          continue;
-        }
-        await freshModel.update({ stock: Number(freshModel.stock) - Number(item.quantity || 1) }, { transaction: t });
+      // ATOMIC STOCK FILL: take THIS single unit from finished stock if available
+      if (useStock && Number(model.stock) >= 1) {
+        await model.update({ stock: Number(model.stock) - 1 }, { transaction: t });
         await dbItem.update({ status: 'ready' }, { transaction: t });
         // Create a dummy completed production record for tracking (only if not exists)
         const existingStockProd = await Production.findOne({
@@ -150,7 +146,7 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), writeLimit
 
       const bomEntries = await ModelMaterial.findAll({ where: { modelId: model.id }, transaction: t });
       for (const bom of bomEntries) {
-        const qty = (item.quantity || 1) * Number(bom.quantity);
+        const qty = Number(bom.quantity); // one unit
         const material = await Material.findByPk(bom.materialId, { transaction: t, lock: t.LOCK.UPDATE });
         if (!material) continue;
 
@@ -208,7 +204,7 @@ router.post('/', authenticate, authorize('admin', 'sales', 'gerant'), writeLimit
 
     await t.commit();
     const response = order.toJSON();
-    if (reservationWarnings.length > 0) response.reservationWarnings = reservationWarnings;
+    if (reservationWarnings.length > 0) response.reservationWarnings = [...new Set(reservationWarnings)];
     res.status(201).json(response);
   } catch (error) {
     if (t && !t.finished) await t.rollback();
