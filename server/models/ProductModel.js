@@ -11,10 +11,6 @@ const ProductModel = sequelize.define('ProductModel', {
     type: DataTypes.STRING(100),
     allowNull: false,
   },
-  color: {
-    type: DataTypes.STRING(50),
-    allowNull: true,
-  },
   category: {
     type: DataTypes.STRING(50),
     allowNull: true,

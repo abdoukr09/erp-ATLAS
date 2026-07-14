@@ -41,6 +41,17 @@ export default function Catalog() {
     try { const res = await api.get('/materials'); setMaterials(res.data); } catch (err) { console.error(err); }
   };
 
+  // Color is stored INSIDE the name (e.g. "Salon L - Rouge") — no DB column.
+  const NAME_COLOR_SEP = ' - ';
+  const splitNameColor = (full) => {
+    const s = full || '';
+    const idx = s.lastIndexOf(NAME_COLOR_SEP);
+    if (idx === -1) return { base: s, color: '' };
+    return { base: s.slice(0, idx), color: s.slice(idx + NAME_COLOR_SEP.length) };
+  };
+  const joinNameColor = (base, color) =>
+    (color && color.trim()) ? `${(base || '').trim()}${NAME_COLOR_SEP}${color.trim()}` : (base || '').trim();
+
   const getMirrorName = (name) => {
     const lower = name.toLowerCase();
     if (lower.includes('gauche')) return name.replace(/gauche/gi, 'droite');
@@ -49,29 +60,34 @@ export default function Catalog() {
   };
 
   const handleModelSubmit = async () => {
-    // Duplicate check on (name + color), case-insensitive (ahMed == Ahmed)
-    const n = (modelForm.name || '').trim().toLowerCase();
-    const c = (modelForm.color || '').trim().toLowerCase();
+    // Combine name + color into a single stored name (color kept inside the name; no DB column)
+    const fullName = joinNameColor(modelForm.name, modelForm.color);
+    if (!fullName) { alert('Le nom du produit est requis.'); return; }
+
+    // Duplicate check on the full name, case-insensitive (ahMed == Ahmed)
+    const target = fullName.toLowerCase();
     const dup = models.find(m =>
-      (m.name || '').trim().toLowerCase() === n &&
-      (m.color || '').trim().toLowerCase() === c &&
+      (m.name || '').trim().toLowerCase() === target &&
       (!editingModel || m.id !== editingModel.id)
     );
     if (dup) { alert('Catalogue déjà créé, saisissez un nouveau catalogue.'); return; }
 
     try {
       const payload = {
-        ...modelForm,
+        name: fullName,
+        category: modelForm.category,
+        description: modelForm.description,
+        isPack: modelForm.isPack,
         basePrice: modelForm.basePrice ? parseFloat(modelForm.basePrice) : null
       };
-      
+
       if (editingModel) {
         await api.put(`/product-models/${editingModel.id}`, payload);
       } else {
         await api.post('/product-models', payload);
 
         // Suggest mirror version (gauche ↔ droite)
-        const mirrorName = getMirrorName(modelForm.name);
+        const mirrorName = getMirrorName(fullName);
         if (mirrorName) {
           const existing = models.find(m => m.name.toLowerCase() === mirrorName.toLowerCase());
           if (!existing && confirm(`Voulez-vous aussi créer la version miroir ?\n\n→ "${mirrorName}"\n\n(mêmes propriétés)`)) {
@@ -233,8 +249,10 @@ export default function Catalog() {
               <tr key={m.id}>
                 <td>#{m.id}</td>
                 <td style={{fontWeight:600, color:'var(--text-primary)'}}>
-                  <div>{m.name}</div>
-                  {m.color && <div style={{fontSize:'0.8em', fontWeight:500, color:'var(--text-muted)'}}>🎨 {m.color}</div>}
+                  {(() => { const nc = splitNameColor(m.name); return (<>
+                    <div>{nc.base}</div>
+                    {nc.color && <div style={{fontSize:'0.8em', fontWeight:500, color:'var(--text-muted)'}}>🎨 {nc.color}</div>}
+                  </>); })()}
                 </td>
                 <td><span className="badge badge-scheduled">{m.category}</span></td>
                 <td>
@@ -269,7 +287,7 @@ export default function Catalog() {
                 {canManage && (
                   <td>
                     <div className="action-buttons">
-                      <button className="btn-icon edit" onClick={() => { setEditingModel(m); setModelForm({ name: m.name, category: m.category, description: m.description || '', basePrice: m.basePrice, isPack: m.isPack, color: m.color || '' }); setShowModelModal(true); }}><Pencil size={14} /></button>
+                      <button className="btn-icon edit" onClick={() => { const nc = splitNameColor(m.name); setEditingModel(m); setModelForm({ name: nc.base, category: m.category, description: m.description || '', basePrice: m.basePrice, isPack: m.isPack, color: nc.color }); setShowModelModal(true); }}><Pencil size={14} /></button>
                       <button className="btn-icon danger" onClick={() => setDeleteConfirmId(m.id)}><Trash2 size={14} /></button>
                     </div>
                   </td>
