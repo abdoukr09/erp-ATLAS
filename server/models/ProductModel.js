@@ -10,7 +10,10 @@ const ProductModel = sequelize.define('ProductModel', {
   name: {
     type: DataTypes.STRING(100),
     allowNull: false,
-    unique: true,
+  },
+  color: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
   },
   category: {
     type: DataTypes.STRING(50),

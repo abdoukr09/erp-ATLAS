@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import api from '../api';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Pencil, Trash2, Book, Settings, Layers } from 'lucide-react';
+import { Plus, Pencil, Trash2, Book, Settings, Layers, Copy } from 'lucide-react';
 import SmartSearch from '../components/SmartSearch';
 
 export default function Catalog() {
@@ -19,7 +19,8 @@ export default function Catalog() {
   const [showPackModal, setShowPackModal] = useState(false);
   const [editingModel, setEditingModel] = useState(null);
   const [activeModel, setActiveModel] = useState(null);
-  const [modelForm, setModelForm] = useState({ name: '', category: 'Sofa', description: '', basePrice: '', isPack: false });
+  const [modelForm, setModelForm] = useState({ name: '', category: 'Sofa', description: '', basePrice: '', isPack: false, color: '' });
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [bomEntries, setBomEntries] = useState([]);
   const [packEntries, setPackEntries] = useState([]);
   const [bomSearch, setBomSearch] = useState('');
@@ -48,6 +49,16 @@ export default function Catalog() {
   };
 
   const handleModelSubmit = async () => {
+    // Duplicate check on (name + color), case-insensitive (ahMed == Ahmed)
+    const n = (modelForm.name || '').trim().toLowerCase();
+    const c = (modelForm.color || '').trim().toLowerCase();
+    const dup = models.find(m =>
+      (m.name || '').trim().toLowerCase() === n &&
+      (m.color || '').trim().toLowerCase() === c &&
+      (!editingModel || m.id !== editingModel.id)
+    );
+    if (dup) { alert('Catalogue déjà créé, saisissez un nouveau catalogue.'); return; }
+
     try {
       const payload = {
         ...modelForm,
@@ -70,16 +81,18 @@ export default function Catalog() {
       }
       
       setShowModelModal(false); setEditingModel(null);
-      setModelForm({ name: '', category: 'Sofa', description: '', basePrice: '', isPack: false });
+      setModelForm({ name: '', category: 'Sofa', description: '', basePrice: '', isPack: false, color: '' });
       fetchModels();
     } catch (err) { 
       alert(err.response?.data?.error || 'Error'); 
     }
   };
 
-  const handleModelDelete = async (id) => {
-    if (!confirm('Désirez-vous supprimer ce modèle ?')) return;
-    try { await api.delete(`/product-models/${id}`); fetchModels(); } catch (err) { alert(err.response?.data?.error || 'Error'); }
+  const handleModelDelete = async () => {
+    if (!deleteConfirmId) return;
+    try { await api.delete(`/product-models/${deleteConfirmId}`); fetchModels(); }
+    catch (err) { alert(err.response?.data?.error || 'Error'); }
+    setDeleteConfirmId(null);
   };
 
   const openBomModal = (model) => {
@@ -195,7 +208,7 @@ export default function Catalog() {
               initialSearchText={initialSearch}
             />
             {canManage && (
-              <button className="btn btn-primary" onClick={() => { setEditingModel(null); setModelForm({ name: '', category: 'Sofa', description: '', basePrice: '' }); setShowModelModal(true); }}>
+              <button className="btn btn-primary" onClick={() => { setEditingModel(null); setModelForm({ name: '', category: 'Sofa', description: '', basePrice: '', isPack: false, color: '' }); setShowModelModal(true); }}>
                 <Plus size={16} /> Nouveau Modèle
               </button>
             )}
@@ -219,7 +232,10 @@ export default function Catalog() {
             {filtered.length > 0 ? filtered.map(m => (
               <tr key={m.id}>
                 <td>#{m.id}</td>
-                <td style={{fontWeight:600, color:'var(--text-primary)'}}>{m.name}</td>
+                <td style={{fontWeight:600, color:'var(--text-primary)'}}>
+                  <div>{m.name}</div>
+                  {m.color && <div style={{fontSize:'0.8em', fontWeight:500, color:'var(--text-muted)'}}>🎨 {m.color}</div>}
+                </td>
                 <td><span className="badge badge-scheduled">{m.category}</span></td>
                 <td>
                   {m.isPack ? (
@@ -253,8 +269,8 @@ export default function Catalog() {
                 {canManage && (
                   <td>
                     <div className="action-buttons">
-                      <button className="btn-icon edit" onClick={() => { setEditingModel(m); setModelForm({ name: m.name, category: m.category, description: m.description || '', basePrice: m.basePrice, isPack: m.isPack }); setShowModelModal(true); }}><Pencil size={14} /></button>
-                      <button className="btn-icon danger" onClick={() => handleModelDelete(m.id)}><Trash2 size={14} /></button>
+                      <button className="btn-icon edit" onClick={() => { setEditingModel(m); setModelForm({ name: m.name, category: m.category, description: m.description || '', basePrice: m.basePrice, isPack: m.isPack, color: m.color || '' }); setShowModelModal(true); }}><Pencil size={14} /></button>
+                      <button className="btn-icon danger" onClick={() => setDeleteConfirmId(m.id)}><Trash2 size={14} /></button>
                     </div>
                   </td>
                 )}
@@ -266,11 +282,39 @@ export default function Catalog() {
         </table>
       </div>
 
+      {deleteConfirmId && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirmId(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, background: 'rgba(0,0,0,0.6)' }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px', padding: '30px', textAlign: 'center', borderRadius: '16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto' }}>
+              <Trash2 size={32} style={{ color: 'var(--accent-red)' }} />
+            </div>
+            <h3 style={{ margin: '0 0 12px 0', color: 'var(--text-primary)', fontSize: '1.3rem' }}>Supprimer le modèle</h3>
+            <p style={{ margin: '0 0 30px 0', color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              Êtes-vous sûr de vouloir supprimer ce modèle du catalogue ? Cette action est définitive et ne peut pas être annulée.
+            </p>
+            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+              <button className="btn" onClick={handleModelDelete}
+                style={{ flex: 1, background: 'var(--accent-red)', color: 'white', border: 'none', padding: '12px 0', fontWeight: 'bold', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                Supprimer
+              </button>
+              <button className="btn" onClick={() => setDeleteConfirmId(null)}
+                style={{ flex: 1, padding: '12px 0', borderRadius: '8px', background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showModelModal && (
         <Modal title={editingModel ? 'Modifier Modèle' : 'Nouveau Modèle'} onClose={() => setShowModelModal(false)} onSubmit={handleModelSubmit}>
           <div className="form-group">
             <label>Nom du Produit *</label>
             <input className="form-control" placeholder="Ex: Salon L Lemon" value={modelForm.name} onChange={e => setModelForm({...modelForm, name: e.target.value})} required />
+          </div>
+          <div className="form-group">
+            <label>Couleur du Produit</label>
+            <input className="form-control" placeholder="Ex: Rouge, Bleu, Gris..." value={modelForm.color} onChange={e => setModelForm({...modelForm, color: e.target.value})} />
           </div>
           <div className="form-row">
             <div className="form-group">
@@ -290,6 +334,14 @@ export default function Catalog() {
             <label>Description</label>
             <textarea className="form-control" placeholder="Caractéristiques du modèle..." value={modelForm.description} onChange={e => setModelForm({...modelForm, description: e.target.value})} />
           </div>
+          {editingModel && (
+            <div style={{ marginTop: 8, paddingTop: 12, borderTop: '1px solid var(--border-color)' }}>
+              <button type="button" className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center' }}
+                onClick={() => { setEditingModel(null); setModelForm({ ...modelForm, color: '' }); }}>
+                <Copy size={14} /> Dupliquer ce modèle (nouvelle variante — changez la couleur)
+              </button>
+            </div>
+          )}
         </Modal>
       )}
 

@@ -3,6 +3,19 @@ const { ProductModel, Material, ModelMaterial, PackItem } = require('../models')
 const { authenticate, authorize } = require('../middleware/auth');
 const router = express.Router();
 
+// Case-insensitive uniqueness on (name + color). Catalog is small; compare in JS
+// (avoids ILIKE wildcard issues with names like "1.2.3").
+const findDuplicate = async (name, color, excludeId = null) => {
+  const all = await ProductModel.findAll();
+  const n = (name || '').trim().toLowerCase();
+  const c = (color || '').trim().toLowerCase();
+  return all.find(m =>
+    (m.name || '').trim().toLowerCase() === n &&
+    (m.color || '').trim().toLowerCase() === c &&
+    m.id !== excludeId
+  ) || null;
+};
+
 // GET all product models
 router.get('/', authenticate, async (req, res) => {
   try {
@@ -56,15 +69,15 @@ router.get('/', authenticate, async (req, res) => {
 // CREATE a product model
 router.post('/', authenticate, authorize('admin', 'gerant', 'production'), async (req, res) => {
   try {
-    const { name, category, description, basePrice, isPack } = req.body;
+    const { name, category, description, basePrice, isPack, color } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required.' });
 
-    const model = await ProductModel.create({ name, category, description, basePrice, isPack });
+    const dup = await findDuplicate(name, color);
+    if (dup) return res.status(400).json({ error: 'Catalogue déjà créé, saisissez un nouveau catalogue.' });
+
+    const model = await ProductModel.create({ name, category, description, basePrice, isPack, color: color || null });
     res.status(201).json(model);
   } catch (error) {
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({ error: 'Model name already exists.' });
-    }
     console.error('Model Creation Error:', error.message, error.errors);
     res.status(500).json({ error: error.message || 'Server error.' });
   }
@@ -87,16 +100,18 @@ router.delete('/:id', authenticate, authorize('admin', 'gerant', 'production'), 
 // UPDATE a product model
 router.put('/:id', authenticate, authorize('admin', 'gerant', 'production'), async (req, res) => {
   try {
-    const { name, category, description, basePrice, isPack } = req.body;
+    const { name, category, description, basePrice, isPack, color } = req.body;
     const model = await ProductModel.findByPk(req.params.id);
     if (!model) return res.status(404).json({ error: 'Model not found.' });
 
-    await model.update({ name, category, description, basePrice, isPack });
+    if (name) {
+      const dup = await findDuplicate(name, color, model.id);
+      if (dup) return res.status(400).json({ error: 'Catalogue déjà créé, saisissez un nouveau catalogue.' });
+    }
+
+    await model.update({ name, category, description, basePrice, isPack, color: color !== undefined ? (color || null) : model.color });
     res.json(model);
   } catch (error) {
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({ error: 'Model name already exists.' });
-    }
     console.error('Model Update Error:', error.message, error.errors);
     res.status(500).json({ error: error.message || 'Server error.' });
   }
