@@ -33,7 +33,7 @@ export default function Orders() {
     items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], 
     salesmen: [], 
     discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', 
-    deliveryAddress: '', deliveryWilaya: '', notes: '', status: 'pending', useStock: false
+    deliveryAddress: '', deliveryWilaya: '', notes: '', status: 'pending', useStock: true
   });
   const [employees, setEmployees] = useState([]);
   const [customerSearch, setCustomerSearch] = useState('');
@@ -111,7 +111,7 @@ export default function Orders() {
         await api.post('/orders', payload);
       }
       setShowModal(false); setEditing(null); setCustomTotal('');
-      setForm({ customerId: '', items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], salesmen: [], discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', deliveryWilaya: '', notes: '', status: 'pending', useStock: false });
+      setForm({ customerId: '', items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], salesmen: [], discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', deliveryWilaya: '', notes: '', status: 'pending', useStock: true });
       fetchOrders();
     } catch (err) { 
       const errMsg = err.response?.data?.details 
@@ -234,7 +234,7 @@ export default function Orders() {
               initialSearchText={initialSearch}
             />
             {!isProduction && (
-              <button className="btn btn-primary" onClick={() => { setEditing(null); setCustomerSearch(''); setForm({ customerId: '', items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], salesmen: [], discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', deliveryWilaya: '', notes: '', status: 'pending', useStock: false }); setShowModal(true); }}>
+              <button className="btn btn-primary" onClick={() => { setEditing(null); setCustomerSearch(''); setForm({ customerId: '', items: [{ sofaModel: '', quantity: 1, unitPrice: '', fabric: '', color: '' }], salesmen: [], discountPercentage: 0, advancePayment: '', paymentMethod: 'cash', deliveryAddress: '', deliveryWilaya: '', notes: '', status: 'pending', useStock: true }); setShowModal(true); }}>
                 <Plus size={16} /> Nouvelle Commande
               </button>
             )}
@@ -454,9 +454,8 @@ export default function Orders() {
             {productModels.map(m => <option key={m.id} value={m.name} />)}
           </datalist>
 
-          <div className="form-group" style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'15px'}}>
-            <input type="checkbox" id="useStock" checked={form.useStock} onChange={e => setForm({...form, useStock: e.target.checked})} />
-            <label htmlFor="useStock" style={{marginBottom:0, cursor:'pointer'}}>Prendre du stock de modèles disponibles (si disponible)</label>
+          <div style={{marginBottom:'15px', fontSize:'0.85rem', color:'var(--text-muted)'}}>
+            📦 Le stock de modèles disponible est pris automatiquement ; sinon l'article part en fabrication.
           </div>
           
  <div></div> 

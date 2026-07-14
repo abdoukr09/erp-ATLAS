@@ -14,7 +14,7 @@ export default function Inventory() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', category: 'other', stock: '', unit: 'pcs', minStock: '1', price: '', supplier: '' });
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'grid'
-  const [selectedCategory, setSelectedCategory] = useState('Tous');
+  // Catégorie: filtrée via SmartSearch (« Filtrer par »)
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   const categoryLabels = {
@@ -135,6 +135,7 @@ export default function Inventory() {
     { key: 'stockLevel', label: '📦 Stock', options: [
       { value: 'low', label: 'Matières Insuffisantes (Stock Bas)', color: '#ef4444' },
     ]},
+    { key: 'category', label: '🏷️ Catégorie', options: Object.entries(categoryLabels).map(([value, label]) => ({ value, label })) },
   ];
 
   const handleFilterChange = (text, filters) => {
@@ -143,7 +144,7 @@ export default function Inventory() {
   };
 
   const filtered = materials.filter(m => {
-    if (selectedCategory !== 'Tous' && m.category !== selectedCategory) return false;
+    if (activeFilters.category && m.category !== activeFilters.category) return false;
     if (activeFilters.stockLevel === 'low' && !isLowStock(m)) return false;
     if (searchText.trim()) {
       const s = searchText.toLowerCase();
@@ -171,14 +172,6 @@ export default function Inventory() {
         <div className="view-toggle" style={{ display: 'flex', gap: '10px' }}>
            <button className={`btn ${viewMode === 'table' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setViewMode('table')}>Vue Matière Première</button>
            <button className={`btn ${viewMode === 'grid' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setViewMode('grid')}>Vue Recharge Stock</button>
-        </div>
-        <div className="category-menu" style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px' }}>
-          <button className={`btn ${selectedCategory === 'Tous' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSelectedCategory('Tous')}>Tous</button>
-          {Object.entries(categoryLabels).map(([key, label]) => (
-             <button key={key} className={`btn ${selectedCategory === key ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setSelectedCategory(key)} style={{ whiteSpace: 'nowrap' }}>
-               {label}
-             </button>
-          ))}
         </div>
       </div>
 
@@ -223,7 +216,7 @@ export default function Inventory() {
                       {m.name}
                    </div>
                    <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <button className="btn-icon" onClick={() => decrementStock(m)} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</button>
+                      <button className="btn-icon" onClick={() => decrementStock(m)} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', width: '43px', height: '43px', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</button>
                       <input 
                          type="number" 
                          value={m.stock} 
@@ -242,7 +235,7 @@ export default function Inventory() {
                             appearance: 'textfield'
                          }} 
                       />
-                      <button className="btn-icon" onClick={() => incrementStock(m)} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                      <button className="btn-icon" onClick={() => incrementStock(m)} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', width: '43px', height: '43px', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                    </div>
                 </div>
              )) : (

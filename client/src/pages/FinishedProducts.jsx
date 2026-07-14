@@ -16,6 +16,8 @@ export default function FinishedProducts() {
   const [showStockModal, setShowStockModal] = useState(false);
   const [activeModel, setActiveModel] = useState(null);
   const [stockForm, setStockForm] = useState({ quantity: '' });
+  const [stockViewMode, setStockViewMode] = useState('table'); // 'table' | 'grid' (recharge)
+  const [modelStockEdits, setModelStockEdits] = useState({});
 
   // Multi-location state
   const [activeTab, setActiveTab] = useState('ready_orders');
@@ -73,6 +75,30 @@ export default function FinishedProducts() {
       setShowStockModal(false);
       fetchData();
     } catch (err) { alert(err.response?.data?.error || 'Error'); }
+  };
+
+  // Recharge stock (grille) — ajuste le stock global du modèle via l'endpoint relatif
+  const adjustModelStock = async (m, delta) => {
+    const cur = Number(m.stock || 0);
+    const applied = Math.max(0, cur + delta) - cur; // clamp à 0
+    if (applied === 0) return;
+    setProductModels(prev => prev.map(x => x.id === m.id ? { ...x, stock: cur + applied } : x));
+    try { await api.put(`/product-models/${m.id}/stock`, { quantityToAdd: applied }); fetchData(); }
+    catch (err) { alert(err.response?.data?.error || 'Error'); fetchData(); }
+  };
+  const incrementModelStock = (m) => adjustModelStock(m, 1);
+  const decrementModelStock = (m) => adjustModelStock(m, -1);
+  const handleModelStockInput = (id, val) => setModelStockEdits(prev => ({ ...prev, [id]: val }));
+  const handleModelStockBlur = async (m) => {
+    const raw = modelStockEdits[m.id];
+    setModelStockEdits(prev => { const c = { ...prev }; delete c[m.id]; return c; });
+    if (raw === undefined) return;
+    const newStock = Number(raw);
+    if (isNaN(newStock) || newStock < 0) { fetchData(); return; }
+    const delta = newStock - Number(m.stock || 0);
+    if (delta === 0) return;
+    try { await api.put(`/product-models/${m.id}/stock`, { quantityToAdd: delta }); fetchData(); }
+    catch (err) { alert(err.response?.data?.error || 'Error'); fetchData(); }
   };
 
 
@@ -218,7 +244,36 @@ export default function FinishedProducts() {
 
       {activeTab === 'general' && (
         <div className="table-container">
+          <div className="view-toggle" style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+            <button className={`btn ${stockViewMode === 'table' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setStockViewMode('table')}>Vue Tableau</button>
+            <button className={`btn ${stockViewMode === 'grid' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setStockViewMode('grid')}>Vue Recharge Stock</button>
+          </div>
           <div className="table-header"><h2>Stock des Modèles ({filteredModels.length})</h2></div>
+          {stockViewMode === 'grid' ? (
+            <div className="stock-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px', padding: '4px' }}>
+              {filteredModels.length > 0 ? filteredModels.map(m => (
+                <div key={m.id} className="stock-card" style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '15px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>#{m.id}</span>
+                    <span className="badge badge-scheduled" style={{ fontSize: '0.75rem' }}>{m.category || 'Modèle'}</span>
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: '1.05rem', color: 'var(--text-primary)', lineHeight: 1.3 }}>{m.name}</div>
+                  {canManage ? (
+                    <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button className="btn-icon" onClick={() => decrementModelStock(m)} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', width: '43px', height: '43px', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</button>
+                      <input type="number" value={modelStockEdits[m.id] ?? (m.stock || 0)} onChange={(e) => handleModelStockInput(m.id, e.target.value)} onBlur={() => handleModelStockBlur(m)} style={{ flex: 1, textAlign: 'center', padding: '8px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-primary)', fontWeight: 'bold', width: '100%', appearance: 'textfield' }} />
+                      <button className="btn-icon" onClick={() => incrementModelStock(m)} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', width: '43px', height: '43px', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 'auto', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2rem', color: (m.stock || 0) > 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>{m.stock || 0}</div>
+                  )}
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>Dont à l'Usine : {getUsineStock(m.id, m.stock || 0)}</div>
+                </div>
+              )) : (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}><Box size={48} style={{ opacity: 0.5, marginBottom: '10px' }} /><p>Aucun modèle trouvé</p></div>
+              )}
+            </div>
+          ) : (
           <table>
             <thead><tr><th>Modèle</th><th>Catégorie</th><th>Capacité de Prod.</th><th>Total Entreprise</th><th>Dont à l'Usine</th><th>Prix Base</th></tr></thead>
             <tbody>
@@ -239,6 +294,7 @@ export default function FinishedProducts() {
               })}
             </tbody>
           </table>
+          )}
         </div>
       )}
 
