@@ -249,10 +249,7 @@ export default function Catalog() {
               <tr key={m.id}>
                 <td>#{m.id}</td>
                 <td style={{fontWeight:600, color:'var(--text-primary)'}}>
-                  {(() => { const nc = splitNameColor(m.name); return (<>
-                    <div>{nc.base}</div>
-                    {nc.color && <div style={{fontSize:'0.8em', fontWeight:500, color:'var(--text-muted)'}}>🎨 {nc.color}</div>}
-                  </>); })()}
+                  {m.name}
                 </td>
                 <td><span className="badge badge-scheduled">{m.category}</span></td>
                 <td>
