@@ -13,18 +13,21 @@ export default function Catalog() {
   const initialSearch = searchParams.get('search') || '';
   const [materials, setMaterials] = useState([]);
   const [searchText, setSearchText] = useState(initialSearch);
+  const [activeCategory, setActiveCategory] = useState('Tous');
   const [activeFilters, setActiveFilters] = useState({});
   const [showModelModal, setShowModelModal] = useState(false);
   const [showBomModal, setShowBomModal] = useState(false);
   const [showPackModal, setShowPackModal] = useState(false);
   const [editingModel, setEditingModel] = useState(null);
   const [activeModel, setActiveModel] = useState(null);
-  const [modelForm, setModelForm] = useState({ name: '', category: 'Sofa', description: '', basePrice: '', isPack: false, color: '' });
+  const [modelForm, setModelForm] = useState({ name: '', category: 'Salon', description: '', basePrice: '', isPack: false, color: '' });
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [bomEntries, setBomEntries] = useState([]);
   const [packEntries, setPackEntries] = useState([]);
   const [bomSearch, setBomSearch] = useState('');
   const [bomFocusIndex, setBomFocusIndex] = useState(-1);
+  const [packSearch, setPackSearch] = useState('');
+  const [packFocusIndex, setPackFocusIndex] = useState(-1);
 
   const canManage = hasRole('admin', 'gerant', 'production');
 
@@ -97,7 +100,7 @@ export default function Catalog() {
       }
       
       setShowModelModal(false); setEditingModel(null);
-      setModelForm({ name: '', category: 'Sofa', description: '', basePrice: '', isPack: false, color: '' });
+      setModelForm({ name: '', category: 'Salon', description: '', basePrice: '', isPack: false, color: '' });
       fetchModels();
     } catch (err) { 
       alert(err.response?.data?.error || 'Error'); 
@@ -117,15 +120,20 @@ export default function Catalog() {
       materialId: m.id,
       quantity: m.ModelMaterial.quantity
     })));
+    // Réinitialiser l'état de recherche pour ne pas hériter de l'ouverture précédente
+    setBomSearch('');
+    setBomFocusIndex(-1);
     setShowBomModal(true);
   };
-  
+
   const openPackModal = (model) => {
     setActiveModel(model);
     setPackEntries(model.packItems?.map(item => ({
       productId: item.productId,
       quantity: item.quantity
     })) || []);
+    setPackSearch('');
+    setPackFocusIndex(-1);
     setShowPackModal(true);
   };
 
@@ -199,6 +207,11 @@ export default function Catalog() {
   };
 
   const filtered = models.filter(m => {
+    if (activeCategory === 'Salon' && m.category !== 'Salon') return false;
+    if (activeCategory === 'Meuble' && m.category !== 'Meuble') return false;
+    if (activeCategory === 'Importation' && m.category !== 'Importation') return false;
+    if (activeCategory === 'Autre' && ['Salon', 'Meuble', 'Importation'].includes(m.category)) return false;
+
     if (activeFilters.type === 'pack' && !m.isPack) return false;
     if (activeFilters.type === 'simple' && m.isPack) return false;
     if (searchText.trim()) {
@@ -216,7 +229,28 @@ export default function Catalog() {
       <div className="table-container">
         <div className="table-header">
           <h2>Catalogue Produits ({filtered.length})</h2>
-          <div className="table-actions">
+          <div className="table-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <select
+              value={activeCategory}
+              onChange={(e) => setActiveCategory(e.target.value)}
+              style={{
+                padding: '10px 14px',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                color: 'var(--text-primary)',
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                minWidth: '160px',
+                outline: 'none'
+              }}
+            >
+              <option value="Tous">Toutes les Catégories</option>
+              <option value="Salon">Salon</option>
+              <option value="Meuble">Meuble</option>
+              <option value="Importation">Importation</option>
+              <option value="Autre">Autre</option>
+            </select>
             <SmartSearch
               filters={catalogFilters}
               onFilterChange={handleFilterChange}
@@ -224,7 +258,7 @@ export default function Catalog() {
               initialSearchText={initialSearch}
             />
             {canManage && (
-              <button className="btn btn-primary" onClick={() => { setEditingModel(null); setModelForm({ name: '', category: 'Sofa', description: '', basePrice: '', isPack: false, color: '' }); setShowModelModal(true); }}>
+              <button className="btn btn-primary" onClick={() => { setEditingModel(null); setModelForm({ name: '', category: 'Salon', description: '', basePrice: '', isPack: false, color: '' }); setShowModelModal(true); }}>
                 <Plus size={16} /> Nouveau Modèle
               </button>
             )}
@@ -291,7 +325,7 @@ export default function Catalog() {
                 )}
               </tr>
             )) : (
-              <tr><td colSpan="6" className="table-empty"><Book size={32} style={{color:'var(--text-muted)'}} /><p>Aucun modèle trouvé</p></td></tr>
+              <tr><td colSpan={canManage ? 9 : 7} className="table-empty"><Book size={32} style={{color:'var(--text-muted)'}} /><p>Aucun modèle trouvé</p></td></tr>
             )}
           </tbody>
         </table>
@@ -334,7 +368,28 @@ export default function Catalog() {
           <div className="form-row">
             <div className="form-group">
               <label>Catégorie</label>
-              <input className="form-control" placeholder="Ex: Sofa, Chaise..." value={modelForm.category} onChange={e => setModelForm({...modelForm, category: e.target.value})} />
+              <select 
+                className="form-control" 
+                value={['Salon', 'Meuble', 'Importation'].includes(modelForm.category) ? modelForm.category : (modelForm.category ? 'Autre' : 'Salon')} 
+                onChange={e => {
+                  if (e.target.value !== 'Autre') setModelForm({...modelForm, category: e.target.value});
+                  else setModelForm({...modelForm, category: ''});
+                }}
+              >
+                <option value="Salon">Salon</option>
+                <option value="Meuble">Meuble</option>
+                <option value="Importation">Importation</option>
+                <option value="Autre">Autre...</option>
+              </select>
+              {!['Salon', 'Meuble', 'Importation'].includes(modelForm.category) && (
+                <input 
+                  className="form-control" 
+                  style={{marginTop: 8}}
+                  placeholder="Précisez la catégorie..." 
+                  value={modelForm.category} 
+                  onChange={e => setModelForm({...modelForm, category: e.target.value})} 
+                />
+              )}
             </div>
             <div className="form-group">
               <label>Prix de Base (DA)</label>
@@ -361,7 +416,7 @@ export default function Catalog() {
       )}
 
       {showBomModal && (
-        <Modal title={`Matières pour: ${activeModel?.name}`} onClose={() => { setShowBomModal(false); setBomSearch(''); }} onSubmit={handleBomSubmit} submitLabel="Enregistrer BOM">
+        <Modal title={`Matières pour: ${activeModel?.name}`} onClose={() => { setShowBomModal(false); setBomSearch(''); setBomFocusIndex(-1); }} onSubmit={handleBomSubmit} submitLabel="Enregistrer BOM">
           <div className="bom-editor">
             <p style={{marginBottom:16, fontSize:14, color:'var(--text-muted)'}}>Définissez les matières premières nécessaires pour fabriquer une unité de ce produit.</p>
             {bomEntries.map((entry, index) => {
@@ -372,14 +427,15 @@ export default function Catalog() {
                     <label>Matière Première</label>
                     <input
                       className="form-control"
-                      placeholder="Rechercher une matière..."
+                      placeholder="Écrire pour rechercher une matière..."
                       value={bomFocusIndex === index ? bomSearch : (selectedMat ? `${selectedMat.name} (${selectedMat.unit})` : '')}
                       onChange={e => { setBomSearch(e.target.value); setBomFocusIndex(index); }}
                       onFocus={() => { setBomFocusIndex(index); setBomSearch(''); }}
+                      onBlur={() => setTimeout(() => setBomFocusIndex(cur => (cur === index ? -1 : cur)), 120)}
                     />
-                    {bomFocusIndex === index && (
+                    {bomFocusIndex === index && bomSearch.trim() !== '' && (
                       <div style={{position:'absolute', top:'100%', left:0, right:0, zIndex:10, background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, maxHeight:180, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}>
-                        {materials.filter(m => m.name.toLowerCase().includes(bomSearch.toLowerCase())).map(mat => (
+                        {materials.filter(m => m.name.toLowerCase().includes(bomSearch.trim().toLowerCase())).map(mat => (
                           <div
                             key={mat.id}
                             style={{padding:'8px 12px', cursor:'pointer', fontSize:13, borderBottom:'1px solid var(--border-color)'}}
@@ -390,6 +446,9 @@ export default function Catalog() {
                             {mat.name} <span style={{color:'var(--text-muted)'}}>({mat.unit})</span>
                           </div>
                         ))}
+                        {materials.filter(m => m.name.toLowerCase().includes(bomSearch.trim().toLowerCase())).length === 0 && (
+                          <div style={{padding:'8px 12px', fontSize:13, color:'var(--text-muted)'}}>Aucune matière trouvée</div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -409,21 +468,44 @@ export default function Catalog() {
       )}
 
       {showPackModal && (
-        <Modal title={`Contenu du Pack: ${activeModel?.name}`} onClose={() => setShowPackModal(false)} onSubmit={handlePackSubmit} submitLabel="Enregistrer Pack">
+        <Modal title={`Contenu du Pack: ${activeModel?.name}`} onClose={() => { setShowPackModal(false); setPackSearch(''); setPackFocusIndex(-1); }} onSubmit={handlePackSubmit} submitLabel="Enregistrer Pack">
           <div className="pack-editor">
             <div style={{background:'rgba(59,130,246,0.08)', borderRadius:8, padding:'10px 14px', marginBottom:16, border:'1px solid rgba(59,130,246,0.2)', fontSize:13, color:'var(--text-secondary)'}}>
               ℹ️ Les <strong>matières premières du pack</strong> seront automatiquement calculées comme la <strong>somme des matières</strong> de chaque produit × sa quantité dans le pack.
             </div>
-            {packEntries.map((entry, index) => (
+            {packEntries.map((entry, index) => {
+              const selectedProd = models.find(m => m.id === parseInt(entry.productId));
+              const packMatches = models.filter(m => m.id !== activeModel.id && !m.isPack && m.name.toLowerCase().includes(packSearch.trim().toLowerCase()));
+              return (
               <div key={index} className="form-row" style={{alignItems:'flex-end', marginBottom:12}}>
-                <div className="form-group" style={{flex:2}}>
+                <div className="form-group" style={{flex:2, position:'relative'}}>
                   <label>Produit</label>
-                  <select className="form-control" value={entry.productId} onChange={e => updatePackRow(index, 'productId', e.target.value)}>
-                    <option value="">Choisir...</option>
-                    {models.filter(m => m.id !== activeModel.id && !m.isPack).map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
-                  </select>
+                  <input
+                    className="form-control"
+                    placeholder="Écrire pour rechercher un produit..."
+                    value={packFocusIndex === index ? packSearch : (selectedProd ? selectedProd.name : '')}
+                    onChange={e => { setPackSearch(e.target.value); setPackFocusIndex(index); }}
+                    onFocus={() => { setPackFocusIndex(index); setPackSearch(''); }}
+                    onBlur={() => setTimeout(() => setPackFocusIndex(cur => (cur === index ? -1 : cur)), 120)}
+                  />
+                  {packFocusIndex === index && packSearch.trim() !== '' && (
+                    <div style={{position:'absolute', top:'100%', left:0, right:0, zIndex:10, background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:8, maxHeight:180, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}>
+                      {packMatches.map(m => (
+                        <div
+                          key={m.id}
+                          style={{padding:'8px 12px', cursor:'pointer', fontSize:13, borderBottom:'1px solid var(--border-color)'}}
+                          onMouseDown={() => { updatePackRow(index, 'productId', m.id); setPackFocusIndex(-1); setPackSearch(''); }}
+                          onMouseEnter={e => e.target.style.background='var(--bg-hover)'}
+                          onMouseLeave={e => e.target.style.background='transparent'}
+                        >
+                          {m.name}
+                        </div>
+                      ))}
+                      {packMatches.length === 0 && (
+                        <div style={{padding:'8px 12px', fontSize:13, color:'var(--text-muted)'}}>Aucun produit trouvé</div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="form-group" style={{flex:1}}>
                   <label>Quantité</label>
@@ -431,7 +513,8 @@ export default function Catalog() {
                 </div>
                 <button type="button" className="btn-icon danger" style={{marginBottom:8}} onClick={() => removePackRow(index)}><Trash2 size={14} /></button>
               </div>
-            ))}
+              );
+            })}
             <button type="button" className="btn btn-ghost" style={{width:'100%', marginTop:8}} onClick={addPackRow}>
               <Plus size={14} /> Ajouter un produit au pack
             </button>

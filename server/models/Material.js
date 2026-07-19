@@ -11,8 +11,16 @@ const Material = sequelize.define('Material', {
     type: DataTypes.STRING(100),
     allowNull: false,
   },
+  // Physical QR identifier printed on labels, e.g. "ATL-P-000117".
+  // Filled by the `trg_materials_barcode` DB trigger on INSERT.
+  // Uniqueness enforced by the `materials_barcode_key` index in Postgres — see
+  // the note in ProductModel.js for why it is not declared here.
+  barcode: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+  },
   category: {
-    type: DataTypes.ENUM('wood', 'foam', 'fabric', 'legs', 'screws', 'leather', 'sponge', 'other'),
+    type: DataTypes.ENUM('wood', 'foam', 'fabric', 'legs', 'screws', 'leather', 'sponge', 'meuble', 'other'),
     allowNull: false,
     defaultValue: 'other',
   },

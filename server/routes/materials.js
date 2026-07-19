@@ -31,6 +31,8 @@ router.post('/', authenticate, authorize('admin', 'production', 'gerant'), async
     const { name, category, stock, unit, minStock, price, supplier } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required.' });
 
+    // barcode is filled by the trg_materials_barcode BEFORE INSERT trigger and comes
+    // back through Sequelize's INSERT ... RETURNING *, so it is already set here
     const material = await Material.create({ name, category, stock, unit, minStock, price, supplier });
     res.status(201).json(material);
   } catch (error) {

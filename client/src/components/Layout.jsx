@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ShoppingCart, Users, Package,
   Factory, Truck, CreditCard, Settings, LogOut, Globe, Book, PackageCheck, Receipt,
   BookOpen, Box, Briefcase, ShieldCheck, Database, Wrench, ClipboardList,
-  Menu, X, MapPin, Sun, Moon
+  Menu, X, MapPin, Sun, Moon, QrCode
 } from 'lucide-react';
 import logoAtlas from '../assets/logo-atlas.png';
 
@@ -19,6 +19,7 @@ const menuItems = [
   { section: 'Opérations', icon: PackageCheck, label: 'Stock (Produits Finis)', path: '/finished-products', roles: ['admin', 'production', 'gerant', 'delivery', 'sales'] },
   { section: 'Opérations', icon: Factory, label: 'Fabrication', path: '/production', roles: ['admin', 'production', 'gerant'] },
   { section: 'Opérations', icon: Truck, label: 'Livraisons', path: '/deliveries', roles: ['admin', 'delivery', 'gerant'] },
+  { section: 'Opérations', icon: QrCode, label: 'Étiquettes QR', path: '/labels', roles: ['admin', 'gerant', 'production'] },
   { section: 'Administration', icon: Briefcase, label: 'Personnel & Paie', path: '/employees', roles: ['admin', 'gerant'] },
   { section: 'Administration', icon: Wrench, label: "Types d'Ouvriers", path: '/worker-types', roles: ['admin'] },
   { section: 'Administration', icon: MapPin, label: 'Gestion des Emplacements', path: '/locations', roles: ['admin'] },
@@ -68,6 +69,7 @@ export default function Layout({ children }) {
       case '/finished-products': return 'Stock Modèles Finis';
       case '/production': return 'Suivi de Production';
       case '/deliveries': return 'Bons de Livraison';
+      case '/labels': return 'Étiquettes QR';
       case '/employees': return 'Personnel & Paie';
       case '/worker-types': return "Types d'Ouvriers & Tarifs";
       case '/reports': return 'Rapport Journalier';

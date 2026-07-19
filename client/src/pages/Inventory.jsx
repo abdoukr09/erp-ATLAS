@@ -25,6 +25,7 @@ export default function Inventory() {
     legs: 'Pieds',
     leather: 'Cuir',
     sponge: 'Éponge',
+    meuble: 'Meuble',
     other: 'Autre'
   };
 

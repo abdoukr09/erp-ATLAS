@@ -25,6 +25,7 @@ const WorkerTypes = lazy(() => import('./pages/WorkerTypes'));
 const Reports = lazy(() => import('./pages/Reports'));
 const DeliveryPrimes = lazy(() => import('./pages/DeliveryPrimes'));
 const Locations = lazy(() => import('./pages/Locations'));
+const Labels = lazy(() => import('./pages/Labels'));
 
 // Lightweight loading fallback
 const PageLoader = () => (
@@ -60,6 +61,7 @@ function AppRoutes() {
         <Route path="/production" element={<ProtectedRoute roles={['admin', 'production', 'gerant']}><Production /></ProtectedRoute>} />
         <Route path="/finished-products" element={<ProtectedRoute roles={['admin', 'production', 'gerant', 'delivery', 'sales']}><FinishedProducts /></ProtectedRoute>} />
         <Route path="/deliveries" element={<ProtectedRoute roles={['admin', 'delivery']}><Deliveries /></ProtectedRoute>} />
+        <Route path="/labels" element={<ProtectedRoute roles={['admin', 'gerant', 'production']}><Labels /></ProtectedRoute>} />
         <Route path="/finance" element={<ProtectedRoute roles={['admin', 'sales', 'gerant']}><Finance /></ProtectedRoute>} />
         <Route path="/tariffs" element={<ProtectedRoute roles={['admin']}><Tariffs /></ProtectedRoute>} />
         <Route path="/employees" element={<ProtectedRoute roles={['admin', 'gerant', 'production']}><Employees /></ProtectedRoute>} />

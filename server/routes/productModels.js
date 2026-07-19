@@ -70,6 +70,8 @@ router.post('/', authenticate, authorize('admin', 'gerant', 'production'), async
     const dup = await findDuplicate(name);
     if (dup) return res.status(400).json({ error: 'Catalogue déjà créé, saisissez un nouveau catalogue.' });
 
+    // barcode is filled by the trg_product_models_barcode BEFORE INSERT trigger and
+    // comes back through Sequelize's INSERT ... RETURNING *, so it is already set here
     const model = await ProductModel.create({ name, category, description, basePrice, isPack });
     res.status(201).json(model);
   } catch (error) {
