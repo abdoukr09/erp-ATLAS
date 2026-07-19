@@ -25,6 +25,22 @@ function signAccessToken(user) {
   );
 }
 
+// ─── Native (Capacitor) client support ─────────────────────────────────────
+// The Android app runs on origin https://localhost, so the refresh cookie is a
+// third-party cookie and gets dropped. Native clients identify themselves with
+// `X-Client: capacitor`; they receive the refresh token in the response body and
+// send it back in `X-Refresh-Token`. Browsers keep using the HTTP-only cookie.
+
+/** True when the caller is the Capacitor app rather than a browser */
+function isNativeClient(req) {
+  return req.headers['x-client'] === 'capacitor';
+}
+
+/** Read the refresh token from the cookie (web) or the header (native) */
+function readRefreshToken(req) {
+  return req.cookies?.refreshToken || req.headers['x-refresh-token'] || null;
+}
+
 // ─── POST /api/auth/login ─────────────────────────────────────────────────
 // Rate limited (5/min) + Joi validated
 router.post('/login', loginLimiter, validate(schemas.login), async (req, res, next) => {
@@ -94,12 +110,19 @@ router.post('/login', loginLimiter, validate(schemas.login), async (req, res, ne
       maxAge: REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000,
     });
 
-    res.json({
+    const payload = {
       token: accessToken, // Backward compatibility for the React frontend
       accessToken,
       expiresIn: ACCESS_TOKEN_EXPIRY,
       user: user.toJSON(),
-    });
+    };
+
+    // Native clients can't keep the cookie — hand them the token to store themselves
+    if (isNativeClient(req)) {
+      payload.refreshToken = rawRefreshToken;
+    }
+
+    res.json(payload);
   } catch (err) {
     next(err);
   }
@@ -110,7 +133,7 @@ router.post('/login', loginLimiter, validate(schemas.login), async (req, res, ne
 // The old refresh token is rotated (deleted and replaced) on each use.
 router.post('/refresh', async (req, res, next) => {
   try {
-    const rawToken = req.cookies?.refreshToken;
+    const rawToken = readRefreshToken(req);
     if (!rawToken) {
       return res.status(401).json({ error: 'Refresh token missing.' });
     }
@@ -155,7 +178,15 @@ router.post('/refresh', async (req, res, next) => {
 
     // Issue fresh access token
     const accessToken = signAccessToken(user);
-    res.json({ accessToken, expiresIn: ACCESS_TOKEN_EXPIRY });
+    const payload = { accessToken, expiresIn: ACCESS_TOKEN_EXPIRY };
+
+    // Rotation happened above — the native app must persist the replacement,
+    // otherwise its stored token is now dead and the session breaks.
+    if (isNativeClient(req)) {
+      payload.refreshToken = newRawToken;
+    }
+
+    res.json(payload);
   } catch (err) {
     next(err);
   }
@@ -166,7 +197,7 @@ router.post('/refresh', async (req, res, next) => {
 // Works even if the access token is still valid (will expire in ≤15min).
 router.post('/logout', async (req, res, next) => {
   try {
-    const rawToken = req.cookies?.refreshToken;
+    const rawToken = readRefreshToken(req);
     if (rawToken) {
       await RefreshToken.destroy({ where: { token: rawToken } });
     }

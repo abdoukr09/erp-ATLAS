@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HTTPS only. The app talks to erp-canape-client.vercel.app over TLS and serves
+  its own bundle from https://localhost, so plain HTTP is never legitimate here.
+  Blocking it prevents credentials or ERP data leaking on a shop/hotel Wi-Fi.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

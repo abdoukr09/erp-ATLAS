@@ -34,7 +34,10 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
   'http://localhost:5001',
   'http://172.20.10.2:5173',
-  'http://172.20.10.3:5173'
+  'http://172.20.10.3:5173',
+  // Capacitor Android app (androidScheme https) and iOS/legacy scheme
+  'https://localhost',
+  'capacitor://localhost'
 ];
 if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
 
@@ -61,6 +64,8 @@ app.use(cors({
   },
   credentials: true, // Crucial for HTTP-only refresh token cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  // X-Client / X-Refresh-Token carry the native app's session (see routes/auth.js)
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Client', 'X-Refresh-Token'],
 }));
 
 // ─── Security Headers (lightweight for serverless speed) ─────────────────────

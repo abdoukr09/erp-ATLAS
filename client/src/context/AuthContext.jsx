@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api, { setAccessToken } from '../api';
+import { isNative, getRefreshToken, clearRefreshToken } from '../native';
 
 const AuthContext = createContext(null);
 
@@ -18,7 +19,14 @@ export function AuthProvider({ children }) {
       } else {
         // Fallback for refresh endpoint that only returns token
         const savedUser = localStorage.getItem('user');
-        if (savedUser) setUser(JSON.parse(savedUser));
+        if (savedUser) {
+          setUser(JSON.parse(savedUser));
+        } else {
+          // Valid session but no cached profile (app data cleared) — fetch it
+          const me = await api.get('/auth/me');
+          setUser(me.data.user);
+          localStorage.setItem('user', JSON.stringify(me.data.user));
+        }
       }
       return true;
     } catch (err) {
@@ -30,11 +38,15 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const initAuth = async () => {
       const savedUser = localStorage.getItem('user');
-      if (savedUser) {
+      // On native the session lives in Preferences and can outlive the cached
+      // profile, so a stored token alone is enough to try a recovery.
+      const nativeToken = isNative() ? await getRefreshToken() : null;
+      if (savedUser || nativeToken) {
         // Attempt to recover session silently
         const success = await refreshSession();
         if (!success) {
            localStorage.removeItem('user');
+           await clearRefreshToken();
            setUser(null);
         }
       }
@@ -54,9 +66,12 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
+    // Runs before clearing storage: the interceptor still needs the token to
+    // tell the server which session to revoke.
     try { await api.post('/auth/logout'); } catch (err) { /* ignore */ }
     setAccessToken(null);
     localStorage.removeItem('user');
+    await clearRefreshToken();
     setUser(null);
   };
 
