@@ -1,13 +1,30 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AlertTriangle } from 'lucide-react';
 import api, { setAccessToken } from '../api';
+import { isNative } from '../native';
+import { useOffline } from '../context/OfflineContext';
 
-const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
-const WARNING_THRESHOLD_MS = 14 * 60 * 1000; // 14 minutes
+// The browser keeps its original 15-minute lock — office PCs are shared and
+// left unattended. A depot tablet is a dedicated device whose operator puts it
+// down for long stretches between scans; locking them out mid-shift would be
+// constant, and offline they could not log back in at all. 8 h covers a shift.
+const LIMITS = isNative()
+  ? { timeout: 8 * 60 * 60 * 1000, warn: 8 * 60 * 60 * 1000 - 60 * 1000 }
+  : { timeout: 15 * 60 * 1000, warn: 14 * 60 * 1000 };
+
+const INACTIVITY_TIMEOUT_MS = LIMITS.timeout;
+const WARNING_THRESHOLD_MS = LIMITS.warn;
 
 export default function SessionManager({ children }) {
   const { user, logout } = useAuth();
+  const { online } = useOffline();
+
+  // The inactivity interval is created once, so it must not close over `online`
+  // — a stale `true` would log the operator out precisely when they are offline
+  // and cannot sign back in.
+  const onlineRef = useRef(online);
+  useEffect(() => { onlineRef.current = online; }, [online]);
   const [showWarning, setShowWarning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
 
@@ -47,6 +64,12 @@ export default function SessionManager({ children }) {
       const diff = now - lastActivity;
 
       if (diff >= INACTIVITY_TIMEOUT_MS) {
+        // Logging out with no network strands the operator: signing back in
+        // needs the server. Hold the session and restart the countdown.
+        if (!onlineRef.current) {
+          localStorage.setItem('lastActivity', Date.now().toString());
+          return;
+        }
         clearInterval(interval);
         logout();
       } else if (diff >= WARNING_THRESHOLD_MS) {

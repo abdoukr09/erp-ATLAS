@@ -126,6 +126,7 @@ app.use('/api/worker-types', require('./routes/workerTypes'));
 app.use('/api/locations', require('./routes/locations'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/delivery-primes', require('./routes/deliveryPrimes'));
+app.use('/api/sync', require('./routes/sync'));
 
 // Health check (not rate-limited — internal probes need this)
 app.get('/api/health', (req, res) => {
@@ -175,6 +176,15 @@ if (process.env.VERCEL) {
   };
 } else {
   (async () => {
+    // Listen BEFORE touching the database. The schema sync needs Supabase to be
+    // reachable, and on a flaky link one DNS hiccup used to abort the whole
+    // startup — leaving no server at all instead of a server whose queries
+    // simply retry (see the retry config in config/database.js).
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
+      console.log(`🔒 Security: Helmet ✅ | Rate Limiting ✅ | Input Validation ✅ | Safe Errors ✅`);
+    });
+
     try {
       try {
         await sequelize.query(`ALTER TYPE "enum_orders_status" ADD VALUE IF NOT EXISTS 'problem';`);
@@ -182,12 +192,9 @@ if (process.env.VERCEL) {
       } catch (e) { /* Ignore */ }
       await sequelize.sync({ alter: true });
       console.log('✅ Database synced (Altered)');
-      app.listen(PORT, '0.0.0.0', () => {
-        console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
-        console.log(`🔒 Security: Helmet ✅ | Rate Limiting ✅ | Input Validation ✅ | Safe Errors ✅`);
-      });
     } catch (err) {
-      console.error('❌ Database sync failed:', err);
+      console.error('⚠️  Sync de schéma impossible (le serveur reste démarré) :', err.message);
+      console.error('    Vérifiez la connexion Internet ; les requêtes repartiront dès son retour.');
     }
   })();
 }

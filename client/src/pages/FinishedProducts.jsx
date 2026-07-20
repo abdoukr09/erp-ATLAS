@@ -4,9 +4,13 @@ import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
 import { Box, MapPin, Settings, PackageCheck } from 'lucide-react';
 import SmartSearch from '../components/SmartSearch';
+import ScanButton from '../components/ScanButton';
+import { getCachedSnapshot } from '../lib/catalog';
+import { queueStockAdjustment } from '../lib/stock';
+import { isNative } from '../native';
 
 export default function FinishedProducts() {
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const canManage = hasRole('admin', 'gerant', 'production');
   const [orders, setOrders] = useState([]);
   const [productModels, setProductModels] = useState([]);
@@ -46,6 +50,13 @@ export default function FinishedProducts() {
       setProductModels(modRes.data);
     } catch (err) {
       console.error(err);
+      // Offline: the orders list needs the server, but the model stock is
+      // cached, which is what the depot actually scans against.
+      const snapshot = await getCachedSnapshot();
+      if (snapshot?.models?.length) {
+        setProductModels(snapshot.models);
+        setOrders([]);
+      }
     }
   };
 
@@ -83,6 +94,22 @@ export default function FinishedProducts() {
     const applied = Math.max(0, cur + delta) - cur; // clamp à 0
     if (applied === 0) return;
     setProductModels(prev => prev.map(x => x.id === m.id ? { ...x, stock: cur + applied } : x));
+
+    // Tablet: through the movement queue, so the tap survives a network outage
+    if (isNative()) {
+      const ok = await queueStockAdjustment({
+        barcode: m.barcode,
+        delta: applied,
+        targetType: 'model',
+        userId: user?.id,
+      });
+      if (!ok) {
+        alert("Ce modèle n'a pas de code-barres : impossible d'enregistrer le mouvement.");
+        fetchData();
+      }
+      return;
+    }
+
     try { await api.put(`/product-models/${m.id}/stock`, { quantityToAdd: applied }); fetchData(); }
     catch (err) { alert(err.response?.data?.error || 'Error'); fetchData(); }
   };
@@ -248,7 +275,10 @@ export default function FinishedProducts() {
             <button className={`btn ${stockViewMode === 'table' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setStockViewMode('table')}>Vue Tableau</button>
             <button className={`btn ${stockViewMode === 'grid' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setStockViewMode('grid')}>Vue Recharge Stock</button>
           </div>
-          <div className="table-header"><h2>Stock des Modèles ({filteredModels.length})</h2></div>
+          <div className="table-header">
+            <h2>Stock des Modèles ({filteredModels.length})</h2>
+            <div className="table-actions"><ScanButton /></div>
+          </div>
           {stockViewMode === 'grid' ? (
             <div className="stock-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px', padding: '4px' }}>
               {filteredModels.length > 0 ? filteredModels.map(m => (

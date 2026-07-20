@@ -4,10 +4,15 @@ import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Pencil, Trash2, Package, AlertTriangle } from 'lucide-react';
 import SmartSearch from '../components/SmartSearch';
+import ScanButton from '../components/ScanButton';
+import { getCachedSnapshot } from '../lib/catalog';
+import { queueStockAdjustment } from '../lib/stock';
+import { isNative } from '../native';
 
 export default function Inventory() {
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const [materials, setMaterials] = useState([]);
+  const [fromCache, setFromCache] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [activeFilters, setActiveFilters] = useState({});
   const [showModal, setShowModal] = useState(false);
@@ -32,14 +37,28 @@ export default function Inventory() {
   useEffect(() => { fetchMaterials(); }, []);
 
   const fetchMaterials = async () => {
-    try { 
-      const res = await api.get('/materials'); 
+    try {
+      const res = await api.get('/materials');
       const data = res.data.map(m => ({
         ...m,
         stock: Number(m.stock).toString() // Removes trailing zeroes like "10.00" -> "10"
       }));
-      setMaterials(data); 
-    } catch (err) { console.error(err); }
+      setMaterials(data);
+      setFromCache(false);
+    } catch (err) {
+      console.error(err);
+      // No network: fall back to the catalogue cached by the last sync, so the
+      // depot still sees its stock instead of an empty table.
+      const snapshot = await getCachedSnapshot();
+      if (snapshot?.materials?.length) {
+        setMaterials(snapshot.materials.map(m => ({
+          ...m,
+          stock: Number(m.stock).toString(),
+          minStock: m.minStock ?? 0,
+        })));
+        setFromCache(true);
+      }
+    }
   };
 
   const getMirrorName = (name) => {
@@ -116,16 +135,37 @@ export default function Inventory() {
     }
   };
 
-  const incrementStock = async (m) => {
-    const newStock = Number(m.stock) + 1;
-    setMaterials(materials.map(mat => mat.id === m.id ? { ...mat, stock: newStock.toString() } : mat));
-    try { await api.put(`/materials/${m.id}`, { stock: newStock }); fetchMaterials(); } catch(e) { fetchMaterials(); }
-  };
+  const incrementStock = (m) => adjustStock(m, 1);
 
-  const decrementStock = async (m) => {
-    const newStock = Math.max(0, Number(m.stock) - 1);
-    setMaterials(materials.map(mat => mat.id === m.id ? { ...mat, stock: newStock.toString() } : mat));
-    try { await api.put(`/materials/${m.id}`, { stock: newStock }); fetchMaterials(); } catch(e) { fetchMaterials(); }
+  const decrementStock = (m) => adjustStock(m, -1);
+
+  const adjustStock = async (m, delta) => {
+    const cur = Number(m.stock) || 0;
+    const applied = Math.max(0, cur + delta) - cur; // never below zero from a tap
+    if (applied === 0) return;
+
+    setMaterials(prev => prev.map(mat =>
+      mat.id === m.id ? { ...mat, stock: (cur + applied).toString() } : mat
+    ));
+
+    // On the tablet, go through the movement queue: it works offline and adds a
+    // delta instead of overwriting whatever the office set meanwhile.
+    if (isNative()) {
+      const ok = await queueStockAdjustment({
+        barcode: m.barcode,
+        delta: applied,
+        targetType: 'material',
+        userId: user?.id,
+      });
+      if (!ok) {
+        alert("Cet article n'a pas de code-barres : impossible d'enregistrer le mouvement.");
+        fetchMaterials();
+      }
+      return;
+    }
+
+    try { await api.put(`/materials/${m.id}`, { stock: cur + applied }); fetchMaterials(); }
+    catch { fetchMaterials(); }
   };
 
   const isLowStock = (m) => Number(m.stock) <= Number(m.minStock);
@@ -178,13 +218,24 @@ export default function Inventory() {
 
       <div className="table-container">
         <div className="table-header">
-          <h2>Matières Premières ({filtered.length})</h2>
+          <h2>
+            Matières Premières ({filtered.length})
+            {fromCache && (
+              <span style={{
+                marginLeft: 10, padding: '4px 10px', borderRadius: 8, verticalAlign: 'middle',
+                background: 'rgba(180,83,9,.18)', color: '#f59e0b', fontSize: '.75rem', fontWeight: 700,
+              }}>
+                DONNÉES LOCALES
+              </span>
+            )}
+          </h2>
           <div className="table-actions">
             <SmartSearch
               filters={inventoryFilters}
               onFilterChange={handleFilterChange}
               placeholder="Rechercher matières, catégorie, fournisseur..."
             />
+            <ScanButton />
             {canManage && (
               <button className="btn btn-primary" onClick={() => { setEditing(null); setForm({ name: '', category: 'other', stock: '', unit: 'pcs', minStock: '1', price: '', supplier: '' }); setShowModal(true); }}>
                 <Plus size={16} /> Ajouter Article

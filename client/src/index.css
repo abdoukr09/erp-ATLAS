@@ -91,6 +91,16 @@ body {
   min-height: 100vh;
 }
 
+/* ─── Barcode scanner ────────────────────────────────────────────────────────
+   MLKit draws the camera preview BEHIND the WebView, so while a scan is running
+   every layer above it must be see-through — otherwise the operator faces a
+   plain dark screen. The class is added to <body> by the Scanner page and
+   removed the moment the scan stops. */
+body.atlas-scanning,
+body.atlas-scanning #root {
+  background: transparent !important;
+}
+
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 6px;

@@ -4,6 +4,7 @@ import api from '../api';
 import Modal from '../components/Modal';
 import { Plus, Pencil, Trash2, Factory } from 'lucide-react';
 import SmartSearch from '../components/SmartSearch';
+import { getCachedSnapshot } from '../lib/catalog';
 
 export default function Production() {
   const navigate = useNavigate();
@@ -46,7 +47,14 @@ export default function Production() {
   };
 
   const fetchProductModels = async () => {
-    try { const res = await api.get('/product-models'); setProductModels(res.data); } catch (err) { console.error(err); }
+    try { const res = await api.get('/product-models'); setProductModels(res.data); }
+    catch (err) {
+      console.error(err);
+      // Offline: models come from the cache. The production orders themselves
+      // are server-side only, so that list stays empty until the link is back.
+      const snapshot = await getCachedSnapshot();
+      if (snapshot?.models?.length) setProductModels(snapshot.models);
+    }
   };
 
   const fetchEmployees = async () => {

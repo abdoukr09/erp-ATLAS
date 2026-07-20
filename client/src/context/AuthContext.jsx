@@ -4,9 +4,19 @@ import { isNative, getRefreshToken, clearRefreshToken } from '../native';
 
 const AuthContext = createContext(null);
 
+/**
+ * A refresh that failed without any HTTP response never reached the server, so
+ * it says nothing about whether the session is still valid — it means the
+ * network is down. Only a real 401 proves the session was rejected.
+ */
+const isNetworkFailure = (err) => !err?.response;
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // True when we restored the session from local storage without reaching the
+  // server. Writes still queue in the outbox; reads come from the cache.
+  const [offlineSession, setOfflineSession] = useState(false);
 
   const refreshSession = useCallback(async () => {
     try {
@@ -28,8 +38,20 @@ export function AuthProvider({ children }) {
           localStorage.setItem('user', JSON.stringify(me.data.user));
         }
       }
+      setOfflineSession(false);
       return true;
     } catch (err) {
+      // Warehouse tablet with no signal: keep the operator working on cached
+      // data instead of stranding them at a login screen they cannot pass.
+      if (isNative() && isNetworkFailure(err)) {
+        const savedUser = localStorage.getItem('user');
+        const storedToken = await getRefreshToken();
+        if (savedUser && storedToken) {
+          setUser(JSON.parse(savedUser));
+          setOfflineSession(true);
+          return true;
+        }
+      }
       console.error('Silent refresh failed:', err);
       return false;
     }
@@ -61,6 +83,7 @@ export function AuthProvider({ children }) {
     setAccessToken(accessToken);
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('lastActivity', Date.now().toString());
+    setOfflineSession(false);
     setUser(userData);
     return userData;
   };
@@ -72,6 +95,7 @@ export function AuthProvider({ children }) {
     setAccessToken(null);
     localStorage.removeItem('user');
     await clearRefreshToken();
+    setOfflineSession(false);
     setUser(null);
   };
 
@@ -80,7 +104,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, hasRole, refreshSession }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, hasRole, refreshSession, offlineSession }}>
       {children}
     </AuthContext.Provider>
   );

@@ -8,6 +8,7 @@ import {
   Menu, X, MapPin, Sun, Moon, QrCode
 } from 'lucide-react';
 import logoAtlas from '../assets/logo-atlas.png';
+import OfflineBanner from './OfflineBanner';
 
 const menuItems = [
   { section: 'Principal', icon: LayoutDashboard, label: 'Tableau de bord', path: '/', roles: ['admin', 'gerant', 'sales'] },
@@ -168,6 +169,7 @@ export default function Layout({ children }) {
             <span className={`badge badge-${user?.role}`}>{user?.role}</span>
           </div>
         </header>
+        <OfflineBanner />
         <div className="page-content page-transition">
           {children}
         </div>

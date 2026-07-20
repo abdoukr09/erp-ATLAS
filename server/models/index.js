@@ -24,6 +24,7 @@ const LocationStock = require('./LocationStock');
 const TransferDeliveryItem = require('./TransferDeliveryItem');
 const DeliveryRoutePrime = require('./DeliveryRoutePrime');
 const DeliveryOrder = require('./DeliveryOrder');
+const StockMovement = require('./StockMovement');
 
 // Associations
 Customer.hasMany(Order, { foreignKey: 'customerId', as: 'orders', onDelete: 'SET NULL' });
@@ -159,7 +160,8 @@ module.exports = {
   LocationStock,
   TransferDeliveryItem,
   DeliveryRoutePrime,
-  DeliveryOrder
+  DeliveryOrder,
+  StockMovement
 };
 
 // ─── LEVEL 10: Enterprise Audit Trail (Global Hooks) ───────────────────────

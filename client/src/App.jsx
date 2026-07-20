@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { OfflineProvider } from './context/OfflineContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { lazy, Suspense } from 'react';
 import './index.css';
@@ -26,6 +27,7 @@ const Reports = lazy(() => import('./pages/Reports'));
 const DeliveryPrimes = lazy(() => import('./pages/DeliveryPrimes'));
 const Locations = lazy(() => import('./pages/Locations'));
 const Labels = lazy(() => import('./pages/Labels'));
+const Scanner = lazy(() => import('./pages/Scanner'));
 
 // Lightweight loading fallback
 const PageLoader = () => (
@@ -56,10 +58,11 @@ function AppRoutes() {
         <Route path="/" element={<ProtectedRoute roles={['admin', 'sales', 'gerant']}><Dashboard /></ProtectedRoute>} />
         <Route path="/customers" element={<ProtectedRoute roles={['admin', 'sales', 'gerant']}><Customers /></ProtectedRoute>} />
         <Route path="/orders" element={<ProtectedRoute roles={['admin', 'sales', 'gerant', 'production']}><Orders /></ProtectedRoute>} />
-        <Route path="/inventory" element={<ProtectedRoute roles={['admin', 'production', 'gerant']}><Inventory /></ProtectedRoute>} />
+        {/* offlineCapable: renders from the IndexedDB catalogue when the depot has no network */}
+        <Route path="/inventory" element={<ProtectedRoute roles={['admin', 'production', 'gerant']} offlineCapable><Inventory /></ProtectedRoute>} />
         <Route path="/catalog" element={<ProtectedRoute roles={['admin', 'production', 'gerant', 'sales']}><Catalog /></ProtectedRoute>} />
-        <Route path="/production" element={<ProtectedRoute roles={['admin', 'production', 'gerant']}><Production /></ProtectedRoute>} />
-        <Route path="/finished-products" element={<ProtectedRoute roles={['admin', 'production', 'gerant', 'delivery', 'sales']}><FinishedProducts /></ProtectedRoute>} />
+        <Route path="/production" element={<ProtectedRoute roles={['admin', 'production', 'gerant']} offlineCapable><Production /></ProtectedRoute>} />
+        <Route path="/finished-products" element={<ProtectedRoute roles={['admin', 'production', 'gerant', 'delivery', 'sales']} offlineCapable><FinishedProducts /></ProtectedRoute>} />
         <Route path="/deliveries" element={<ProtectedRoute roles={['admin', 'delivery']}><Deliveries /></ProtectedRoute>} />
         <Route path="/labels" element={<ProtectedRoute roles={['admin', 'gerant', 'production']}><Labels /></ProtectedRoute>} />
         <Route path="/finance" element={<ProtectedRoute roles={['admin', 'sales', 'gerant']}><Finance /></ProtectedRoute>} />
@@ -70,6 +73,8 @@ function AppRoutes() {
         <Route path="/reports" element={<ProtectedRoute roles={['admin']}><Reports /></ProtectedRoute>} />
         <Route path="/delivery-primes" element={<ProtectedRoute roles={['admin']}><DeliveryPrimes /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute roles={['admin']}><UsersPage /></ProtectedRoute>} />
+        {/* bare: full screen, no sidebar — the camera renders behind the page */}
+        <Route path="/scan" element={<ProtectedRoute roles={['admin', 'gerant', 'production', 'delivery', 'sales']} bare offlineCapable><Scanner /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Suspense>
@@ -80,9 +85,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <SessionManager>
-          <AppRoutes />
-        </SessionManager>
+        {/* Inside AuthProvider: it must not call the API before login */}
+        <OfflineProvider>
+          <SessionManager>
+            <AppRoutes />
+          </SessionManager>
+        </OfflineProvider>
       </AuthProvider>
     </BrowserRouter>
   );

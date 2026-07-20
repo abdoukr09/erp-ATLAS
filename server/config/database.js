@@ -19,18 +19,42 @@ if (finalUrl && finalUrl.includes(':5432')) {
 
 let sequelize;
 
+// ─── Stale connection resilience ────────────────────────────────────────────
+// Supabase drops connections that sat idle, but Sequelize's pool leaves
+// eviction OFF by default (generic-pool evictionRunIntervalMillis = 0). A dev
+// server left running overnight therefore hands out a dead socket on the next
+// query, which hangs ~11s and surfaces as "Internal server error" on login.
+// `evict` reaps them in the background; `retry` re-runs a query that still
+// lands on a broken one; `keepAlive` stops the OS dropping the socket first.
+const POOL = {
+  max: 5,
+  min: 0,
+  acquire: 30000,
+  idle: 10000,
+  evict: 10000,
+};
+
+const RETRY_ON_DEAD_CONNECTION = {
+  match: [
+    /ECONNRESET/,
+    /ETIMEDOUT/,
+    /EPIPE/,
+    /Connection terminated/i,
+    /server closed the connection/i,
+    /SequelizeConnectionError/,
+  ],
+  max: 3,
+};
+
 if (process.env.NODE_ENV === 'production') {
   // Production Database Connection (Vercel -> Supabase Pooler)
   sequelize = new Sequelize(finalUrl, {
     dialect: 'postgres',
     dialectModule: pg,
     logging: false,
-    pool: {
-      max: 5, // pgbouncer on port 6543 handles connection sharing, so 5 is safe even on serverless
-      min: 0,
-      acquire: 30000,
-      idle: 5000,
-    },
+    // pgbouncer on port 6543 handles connection sharing, so 5 is safe even on serverless
+    pool: { ...POOL, idle: 5000 },
+    retry: RETRY_ON_DEAD_CONNECTION,
     // We already intercepted the global pg driver for SSL, but adding it explicitly here as backup.
     dialectOptions: {
       ssl: {
@@ -41,6 +65,7 @@ if (process.env.NODE_ENV === 'production') {
       // pgbouncer rotates connections between queries, so prepared statements break.
       statement_timeout: 30000,
       idle_in_transaction_session_timeout: 10000,
+      keepAlive: true,
     },
     // Disable prepared statements globally — pgbouncer can't handle them
     define: { timestamps: true },
@@ -57,12 +82,8 @@ if (process.env.NODE_ENV === 'production') {
       port: process.env.DB_PORT || 5432,
       dialect: 'postgres',
       logging: false,
-      pool: {
-        max: 5,
-        min: 0,
-        acquire: 30000,
-        idle: 10000,
-      },
+      pool: POOL,
+      retry: RETRY_ON_DEAD_CONNECTION,
     }
   );
   console.log('📡 Using LOCAL database configuration');
@@ -85,14 +106,11 @@ if (process.env.NODE_ENV === 'production') {
         ssl: {
           require: true,
           rejectUnauthorized: false
-        }
+        },
+        keepAlive: true,
       },
-      pool: {
-        max: 5,
-        min: 0,
-        acquire: 30000,
-        idle: 10000,
-      },
+      pool: POOL,
+      retry: RETRY_ON_DEAD_CONNECTION,
     }
   );
   console.log('📡 Using REMOTE (Supabase) database configuration locally');
