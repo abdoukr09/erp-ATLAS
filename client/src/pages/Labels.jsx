@@ -6,44 +6,125 @@ import SmartSearch from '../components/SmartSearch';
 import { Printer, QrCode, BookOpen, Box, X, CheckSquare, Square, Trash2, Minus, Plus } from 'lucide-react';
 
 /**
- * Étiquettes QR — prints the A4 sheet the factory already glues onto each product,
+ * Étiquettes QR — prints the label the factory already glues onto each product,
  * enriched with a QR code, an optional RÉSERVÉ stamp and a free note.
+ * Two output formats: 80 × 50 mm thermal labels (the Tysso BLP-300) or an A4 sheet.
  *
  * The QR encodes ONLY the `barcode` string (ATL-M-xxxxxx / ATL-P-xxxxxx). Names
  * change over time, the code never does — that is what the scanner will read.
  */
 
-// A4 = 210 × 297 mm. qrMax keeps the QR from overflowing its cell.
-const LAYOUTS = {
-  1: { rows: 1, label: '1 par page', qrMax: 95, qrDefault: 55, small: 4.5, stamp: 8, pad: '8mm' },
-  2: { rows: 2, label: '2 par page', qrMax: 60, qrDefault: 40, small: 3.5, stamp: 6, pad: '6mm' },
+/**
+ * Page formats. `cssSize` feeds the @page rule, which is what actually tells the
+ * printer the media size — the driver must be set to the same size or it feeds blanks.
+ * Layouts are calibrated per format so a QR never overflows its cell: qrMax is the
+ * hard ceiling, qrDefault / fontDefault are what you get when you pick the format.
+ */
+const FORMATS = {
+  thermal: {
+    label: 'Étiquette thermique 80 × 50 mm',
+    short: '80×50',
+    pageWord: 'étiquette',
+    width: 80, height: 50, pageMargin: 0,
+    // Deliberately no cssSize. Chrome infers *landscape* from any @page size whose width
+    // exceeds its height, and the driver then rotates the content 90° on a label that is
+    // already wide — the name ends up running along the edge and clipped. With no `size`,
+    // Chrome uses the printer's own 80 × 50 media in its natural orientation and prints flat.
+    cssSize: null,
+    tight: true, // every extra block competes with the QR for 46 mm of usable height
+    showBorder: false, // die-cut labels are already separated — a cut guide only wastes edge
+    previewW: 340,
+    // Measured: 46 mm of usable height. A 26 mm QR leaves room for a 3-line name.
+    // RÉSERVÉ + note do not fit on top of that — the QR slider is how you make room.
+    layouts: {
+      1: { rows: 1, label: '1 par étiquette', qrMax: 40, qrMin: 15, qrDefault: 26, nameLines: 2,
+           fontMin: 2, fontMax: 8, fontDefault: 3.5, fontStep: 0.5, small: 2, stamp: 3,
+           pad: '2mm', gap: '1mm', stampPad: '0.8mm 4mm', stampBorder: '1.5px', notePad: '1mm' },
+    },
+  },
+  a4: {
+    label: 'Planche A4 210 × 297 mm',
+    short: 'A4',
+    pageWord: 'page',
+    width: 210, height: 297, pageMargin: 10,
+    cssSize: 'A4',
+    showBorder: true,
+    previewW: 373,
+    layouts: {
+      1: { rows: 1, label: '1 par page', qrMax: 95, qrMin: 20, qrDefault: 55, nameLines: 3,
+           fontMin: 6, fontMax: 30, fontDefault: 16, fontStep: 1, small: 4.5, stamp: 8,
+           pad: '8mm', gap: '4mm', stampPad: '2mm 8mm', stampBorder: '3px', notePad: '2mm' },
+      2: { rows: 2, label: '2 par page', qrMax: 60, qrMin: 20, qrDefault: 40, nameLines: 3,
+           fontMin: 6, fontMax: 22, fontDefault: 12, fontStep: 1, small: 3.5, stamp: 6,
+           pad: '6mm', gap: '3mm', stampPad: '2mm 6mm', stampBorder: '2px', notePad: '2mm' },
+    },
+  },
 };
-const PAGE_MARGIN_MM = 10;
+const DEFAULT_FORMAT = 'thermal';
+const layoutOf = (fmt, perPage) => fmt.layouts[perPage] ?? Object.values(fmt.layouts)[0];
+
 const MM = 3.7795275591; // px per mm at 96dpi
-// Cap only the on-screen preview: rendering hundreds of A4 pages with QR codes
+// Cap only the on-screen preview: rendering hundreds of pages with QR codes
 // would freeze the browser. Printing is never capped.
 const PREVIEW_MAX = 20;
 
+/**
+ * Millimetres left in one label cell for the name and the QR once every fixed-height block
+ * is accounted for. Those two then share it, each one's ceiling being the remainder after
+ * the other — which is what makes clipping impossible rather than merely unlikely. A clipped
+ * QR or a barcode line pushed off the label breaks scanning silently, so no floor is applied:
+ * a floor would hand back a size that does not fit.
+ *
+ * Line factors match what renders: the name carries line-height 1.15 itself, the small texts
+ * inherit 1.6 from index.css. The 1.5 mm slack absorbs the gap between screen metrics and
+ * the printer's 203 dpi rasteriser — several combinations land within 0.2 mm without it.
+ */
+const labelBudgetMm = (fmt, cfg, { reserved, note }) => {
+  const pxToMm = (v) => parseFloat(v) / MM; // '1.5px' → mm
+  const cell = (fmt.height - 2 * fmt.pageMargin) / cfg.rows;
+  let blocks = 4; // name, category, QR, barcode line
+  let fixed = cfg.small * 1.6  // category
+            + cfg.small * 1.6; // barcode line
+  if (reserved) {
+    fixed += cfg.stamp * 1.1 + 2 * parseFloat(cfg.stampPad) + 2 * pxToMm(cfg.stampBorder);
+    blocks++;
+  }
+  if (note) {
+    fixed += cfg.small * 1.6 + parseFloat(cfg.notePad) + pxToMm('1px'); // + its top border
+    blocks++;
+  }
+  fixed += parseFloat(cfg.gap) * (blocks - 1) + 2 * parseFloat(cfg.pad) + 1.5;
+  return cell - fixed;
+};
+// The name is clamped to nameLines, so this is the most it can ever occupy.
+const nameHeightMm = (cfg, fontMm) => fontMm * 1.15 * cfg.nameLines;
+
 // One printed label. Always black on white so the dark theme can't ruin a printout.
-export function LabelCard({ item, fontSize, qrSize, showReserved, note, perPage }) {
-  const cfg = LAYOUTS[perPage];
+export function LabelCard({ item, fontSize, qrSize, showReserved, note, perPage, format = DEFAULT_FORMAT }) {
+  const fmt = FORMATS[format];
+  const cfg = layoutOf(fmt, perPage);
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       textAlign: 'center', height: '100%', width: '100%', boxSizing: 'border-box',
       padding: cfg.pad, background: '#fff', color: '#000',
-      border: '1px dashed #bbb', overflow: 'hidden', gap: perPage === 2 ? '3mm' : '4mm',
+      border: fmt.showBorder ? '1px dashed #bbb' : 'none', overflow: 'hidden', gap: cfg.gap,
     }}>
       {showReserved && (
         <div style={{
-          border: '3px solid #000', padding: '2mm 8mm', fontWeight: 900, letterSpacing: '2px',
+          border: `${cfg.stampBorder} solid #000`, padding: cfg.stampPad, fontWeight: 900, letterSpacing: '2px',
           fontSize: `${cfg.stamp}mm`, transform: 'rotate(-3deg)', lineHeight: 1.1, flexShrink: 0,
         }}>
           RÉSERVÉ
         </div>
       )}
 
-      <div style={{ fontSize: `${fontSize}mm`, fontWeight: 800, lineHeight: 1.15, wordBreak: 'break-word', width: '100%' }}>
+      {/* Clamped to nameLines: the name is the only variable-height block, so bounding it
+          is what makes the QR ceiling below a guarantee rather than an estimate. */}
+      <div style={{
+        fontSize: `${fontSize}mm`, fontWeight: 800, lineHeight: 1.15, wordBreak: 'break-word', width: '100%',
+        maxHeight: `${(cfg.nameLines * 1.15).toFixed(2)}em`, overflow: 'hidden', flexShrink: 0,
+      }}>
         {item.name}
       </div>
 
@@ -60,7 +141,7 @@ export function LabelCard({ item, fontSize, qrSize, showReserved, note, perPage 
       </div>
 
       {note.trim() && (
-        <div style={{ fontSize: `${cfg.small}mm`, borderTop: '1px solid #000', paddingTop: '2mm', width: '90%', wordBreak: 'break-word' }}>
+        <div style={{ fontSize: `${cfg.small}mm`, borderTop: '1px solid #000', paddingTop: cfg.notePad, width: '90%', wordBreak: 'break-word' }}>
           {note}
         </div>
       )}
@@ -68,22 +149,25 @@ export function LabelCard({ item, fontSize, qrSize, showReserved, note, perPage 
   );
 }
 
-// A4 sheet holding up to `perPage` labels.
-export function PrintPage({ items, fontSize, qrSize, showReserved, note, perPage, isLast }) {
-  const cfg = LAYOUTS[perPage];
+// One physical sheet — an A4 page or a single thermal label — holding `perPage` labels.
+export function PrintPage({ items, fontSize, qrSize, showReserved, note, perPage, isLast, format = DEFAULT_FORMAT }) {
+  const fmt = FORMATS[format];
+  const cfg = layoutOf(fmt, perPage);
   return (
     <div
       className="atlas-page"
       style={{
-        width: '210mm', height: '297mm', boxSizing: 'border-box', padding: `${PAGE_MARGIN_MM}mm`,
-        background: '#fff', display: 'grid', gridTemplateRows: `repeat(${cfg.rows}, 1fr)`,
+        width: `${fmt.width}mm`, height: `${fmt.height}mm`, boxSizing: 'border-box',
+        padding: `${fmt.pageMargin}mm`,
+        background: '#fff', display: 'grid', gridTemplateRows: `repeat(${cfg.rows}, minmax(0, 1fr))`,
         pageBreakAfter: isLast ? 'auto' : 'always', breakAfter: isLast ? 'auto' : 'page',
+        overflow: 'hidden',
       }}
     >
       {/* index-keyed: the same label can legitimately repeat on a page */}
       {items.map((it, i) => (
         <LabelCard key={i} item={it} fontSize={fontSize} qrSize={qrSize}
-                   showReserved={showReserved} note={note} perPage={perPage} />
+                   showReserved={showReserved} note={note} perPage={perPage} format={format} />
       ))}
     </div>
   );
@@ -95,6 +179,7 @@ const chunk = (arr, n) => {
   return out;
 };
 const keyOf = (kind, id) => `${kind}:${id}`;
+const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
 
 export default function Labels() {
   const [tab, setTab] = useState('models'); // 'models' | 'materials'
@@ -109,9 +194,10 @@ export default function Labels() {
 
   // print modal state
   const [printItems, setPrintItems] = useState(null);
-  const [fontSize, setFontSize] = useState(16);   // mm
-  const [qrSize, setQrSize] = useState(55);       // mm
+  const [format, setFormat] = useState(DEFAULT_FORMAT);
   const [perPage, setPerPage] = useState(1);
+  const [fontSize, setFontSize] = useState(() => layoutOf(FORMATS[DEFAULT_FORMAT], 1).fontDefault); // mm
+  const [qrSize, setQrSize] = useState(() => layoutOf(FORMATS[DEFAULT_FORMAT], 1).qrDefault);       // mm
   const [showReserved, setShowReserved] = useState(false);
   const [note, setNote] = useState('');
   const [copies, setCopies] = useState(1);
@@ -130,11 +216,37 @@ export default function Labels() {
     })();
   }, []);
 
-  // keep the QR inside its cell when the layout changes
-  useEffect(() => {
-    const layout = LAYOUTS[Number(perPage)];
-    if (layout) setQrSize(q => Math.min(q, layout.qrMax));
-  }, [perPage]);
+  const fmt = FORMATS[format];
+  const cfg = layoutOf(fmt, Number(perPage));
+  // Clamped during render, not in an effect: going from 2-per-page to 1-per-page must never
+  // leave a QR wider than its cell, and an effect doing setState would cascade a re-render.
+  // Ceilings, not fixed maximums: they shrink as RÉSERVÉ and the note eat into the height,
+  // so neither slider can ever ask for something that would clip the barcode line off.
+  // The name yields first — a truncated name is cosmetic, an unscannable QR is not.
+  const freeMm = labelBudgetMm(fmt, cfg, { reserved: showReserved, note: !!note.trim() });
+  const fontCeil = Math.max(
+    cfg.fontMin,
+    Math.floor((freeMm - cfg.qrMin) / (1.15 * cfg.nameLines) / cfg.fontStep) * cfg.fontStep,
+  );
+  const fontTop = Math.min(cfg.fontMax, fontCeil);
+  const fontMm = Math.min(Math.max(fontSize, cfg.fontMin), fontTop);
+  const qrCeil = Math.max(cfg.qrMin, Math.min(cfg.qrMax, Math.floor(freeMm - nameHeightMm(cfg, fontMm))));
+  const qrMm = Math.min(qrSize, qrCeil);
+  // Preview: scale the real mm size to a fixed pixel width — down for A4, up for a small label.
+  const previewScale = fmt.previewW / (fmt.width * MM);
+  const previewH = Math.round(fmt.height * MM * previewScale);
+  const pageWordCap = fmt.pageWord.charAt(0).toUpperCase() + fmt.pageWord.slice(1);
+
+  // Switching format resets the sizes: a 16 mm name is right on A4 and absurd on an 80×50 label.
+  const changeFormat = (key) => {
+    const next = FORMATS[key];
+    const nextPerPage = next.layouts[perPage] ? perPage : Number(Object.keys(next.layouts)[0]);
+    const c = layoutOf(next, nextPerPage);
+    setFormat(key);
+    setPerPage(nextPerPage);
+    setFontSize(c.fontDefault);
+    setQrSize(c.qrDefault);
+  };
 
   const rows = tab === 'models' ? models : materials;
   const kind = tab === 'models' ? 'model' : 'material';
@@ -243,11 +355,20 @@ export default function Labels() {
 
         #atlas-print-root { display: none; }
         @media print {
-          @page { size: A4; margin: 0; }
-          html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+          /* Declaring a size tells the printer the media; omitting it defers to the driver's
+             own paper, which is what a wide label needs (see cssSize in FORMATS). */
+          @page { ${fmt.cssSize ? `size: ${fmt.cssSize}; ` : ''}margin: 0; }
+          /* height matters as much as margin: index.css puts min-height:100vh on body, which
+             in print keeps a screen-tall box alive and emits blank pages after the labels. */
+          html, body {
+            background: #fff !important; margin: 0 !important; padding: 0 !important;
+            min-height: 0 !important; height: auto !important;
+          }
           #root { display: none !important; }
-          #atlas-print-root { display: block !important; }
-          .atlas-page { box-shadow: none !important; }
+          #atlas-print-root {
+            display: block !important; min-height: 0 !important; height: auto !important;
+          }
+          .atlas-page { box-shadow: none !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
         }
 
         /* Print modal: fixed height, two scrollable columns */
@@ -420,7 +541,10 @@ export default function Labels() {
           <div className="modal atlas-print-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2><QrCode size={18} style={{ verticalAlign: -3, marginRight: 8 }} />
-                Imprimer — {printItems.length} modèle{printItems.length > 1 ? 's' : ''}, {expanded.length} étiquette{expanded.length > 1 ? 's' : ''}, {pages.length} page{pages.length > 1 ? 's' : ''} A4
+                {/* the étiquette count only adds information when a sheet holds several */}
+                Imprimer — {plural(printItems.length, 'modèle')}
+                {perPage > 1 ? ` · ${plural(expanded.length, 'étiquette')}` : ''}
+                {` · ${plural(pages.length, fmt.pageWord)} ${fmt.short}`}
               </h2>
               <button className="btn-icon" onClick={() => setPrintItems(null)}><X size={18} /></button>
             </div>
@@ -429,28 +553,44 @@ export default function Labels() {
               {/* ---- settings (left column, scrollable) ---- */}
               <div className="atlas-print-settings">
                 <div className="form-group">
-                  <label>Taille du nom : <strong>{fontSize} mm</strong></label>
-                  <input type="range" min={6} max={30} step={1} value={fontSize}
+                  <label>Format d'impression</label>
+                  <select className="form-control" value={format}
+                          onChange={e => changeFormat(e.target.value)}>
+                    {Object.entries(FORMATS).map(([k, v]) => (
+                      <option key={k} value={k}>{v.label}</option>
+                    ))}
+                  </select>
+                  <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                    Réglez le même format dans le pilote de l'imprimante, sinon elle déroule des étiquettes vides.
+                  </small>
+                </div>
+
+                {/* a single-layout format has nothing to choose */}
+                {Object.keys(fmt.layouts).length > 1 && (
+                  <div className="form-group">
+                    <label>Disposition</label>
+                    <select className="form-control" value={perPage}
+                            onChange={e => setPerPage(Number(e.target.value))}>
+                      {Object.entries(fmt.layouts).map(([k, v]) => (
+                        <option key={k} value={Number(k)}>{v.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label>Taille du nom : <strong>{fontMm} mm</strong></label>
+                  <input type="range" min={cfg.fontMin} max={fontTop} step={cfg.fontStep} value={fontMm}
                          onChange={e => setFontSize(Number(e.target.value))} style={{ width: '100%' }} />
                 </div>
 
                 <div className="form-group">
-                  <label>Taille du QR : <strong>{qrSize} mm</strong></label>
-                  <input type="range" min={15} max={LAYOUTS[perPage]?.qrMax ?? 55} step={1} value={qrSize}
+                  <label>Taille du QR : <strong>{qrMm} mm</strong></label>
+                  <input type="range" min={cfg.qrMin} max={qrCeil} step={1} value={qrMm}
                          onChange={e => setQrSize(Number(e.target.value))} style={{ width: '100%' }} />
                   <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                    Max {LAYOUTS[perPage]?.qrMax ?? 55} mm · 30 mm ou plus recommandé pour le scan
+                    Max {qrCeil} mm — la place qui reste une fois le nom, la catégorie et le code posés
                   </small>
-                </div>
-
-                <div className="form-group">
-                  <label>Disposition</label>
-                  <select className="form-control" value={perPage}
-                          onChange={e => setPerPage(Number(e.target.value))}>
-                    {Object.entries(LAYOUTS).map(([k, v]) => (
-                      <option key={k} value={Number(k)}>{v.label}</option>
-                    ))}
-                  </select>
                 </div>
 
                 <div className="form-group atlas-copies">
@@ -486,15 +626,26 @@ export default function Labels() {
                             onChange={e => setNote(e.target.value)} />
                 </div>
 
+                {/* the ceiling shrinks the QR silently — below 20 mm scanning gets unreliable */}
+                {qrCeil < 20 && (
+                  <div style={{
+                    background: 'rgba(234,179,8,0.10)', border: '1px solid rgba(234,179,8,0.35)',
+                    borderRadius: 8, padding: '8px 12px', fontSize: 11, color: 'var(--text-secondary)',
+                  }}>
+                    ⚠ Il ne reste que <strong>{qrCeil} mm</strong> pour le QR sur une étiquette {fmt.short} mm,
+                    ce qui rend le scan difficile. Retirez la note ou RÉSERVÉ, ou réduisez la taille du nom.
+                  </div>
+                )}
+
                 {/* Summary box */}
                 <div style={{
                   background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)',
                   borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--text-secondary)',
                 }}>
                   <div><strong>{printItems.length}</strong> modèle{printItems.length > 1 ? 's' : ''} × <strong>{copies}</strong> exemplaire{copies > 1 ? 's' : ''}</div>
-                  <div>= <strong>{expanded.length}</strong> étiquette{expanded.length > 1 ? 's' : ''} sur <strong>{pages.length}</strong> page{pages.length > 1 ? 's' : ''} A4</div>
+                  <div>= <strong>{expanded.length}</strong> étiquette{expanded.length > 1 ? 's' : ''} sur <strong>{pages.length}</strong> {fmt.pageWord}{pages.length > 1 ? 's' : ''} {fmt.short}</div>
                   {expanded.length > printItems.length * copies && (
-                    <div style={{ marginTop: 4, fontSize: 11 }}>⚠ page complétée par répétition</div>
+                    <div style={{ marginTop: 4, fontSize: 11 }}>⚠ {fmt.pageWord} complétée par répétition</div>
                   )}
                 </div>
 
@@ -527,21 +678,21 @@ export default function Labels() {
               {/* ---- preview (right column, scrollable) ---- */}
               <div className="atlas-print-preview-col">
                 <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)', flexShrink: 0 }}>
-                  Aperçu — {pages.length} page{pages.length > 1 ? 's' : ''} A4
+                  Aperçu — {plural(pages.length, fmt.pageWord)} {fmt.short}
                   {pages.length > PREVIEW_MAX && ` (les ${PREVIEW_MAX} premières affichées)`}
                 </div>
                 <div className="atlas-preview-pages-wrap">
                   {pages.length === 0 && (
-                    <div style={{ color: 'var(--text-muted)', padding: 30 }}>Aucune page à afficher</div>
+                    <div style={{ color: 'var(--text-muted)', padding: 30 }}>Aucune {fmt.pageWord} à afficher</div>
                   )}
                   {pages.slice(0, PREVIEW_MAX).map((pg, i) => (
-                    <div key={i} style={{ flexShrink: 0 }}>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, textAlign: 'center' }}>
-                        Page {i + 1} / {pages.length} — {pg.map(it => it.name).join(' · ')}
+                    <div key={i} style={{ flexShrink: 0, width: fmt.previewW }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, textAlign: 'center', width: fmt.previewW }}>
+                        {pageWordCap} {i + 1} / {pages.length} — {pg.map(it => it.name).join(' · ')}
                       </div>
-                      <div style={{ width: 'calc(210mm * 0.47)', height: 'calc(297mm * 0.47)', position: 'relative' }}>
-                        <div style={{ transform: 'scale(0.47)', transformOrigin: 'top left', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
-                          <PrintPage items={pg} fontSize={fontSize} qrSize={qrSize}
+                      <div style={{ width: fmt.previewW, height: previewH, position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
+                        <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left', boxShadow: '0 4px 16px rgba(0,0,0,0.3)', width: `${fmt.width}mm`, height: `${fmt.height}mm` }}>
+                          <PrintPage items={pg} fontSize={fontMm} qrSize={qrMm} format={format}
                                      showReserved={showReserved} note={note} perPage={perPage} isLast />
                         </div>
                       </div>
@@ -549,7 +700,7 @@ export default function Labels() {
                   ))}
                   {pages.length > PREVIEW_MAX && (
                     <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: 12, textAlign: 'center' }}>
-                      … et {pages.length - PREVIEW_MAX} autre{pages.length - PREVIEW_MAX > 1 ? 's' : ''} page{pages.length - PREVIEW_MAX > 1 ? 's' : ''} — toutes seront imprimées.
+                      … et {pages.length - PREVIEW_MAX} autre{pages.length - PREVIEW_MAX > 1 ? 's' : ''} {fmt.pageWord}{pages.length - PREVIEW_MAX > 1 ? 's' : ''} — toutes seront imprimées.
                     </div>
                   )}
                 </div>
@@ -559,7 +710,7 @@ export default function Labels() {
             <div className="modal-footer">
               <button type="button" className="btn btn-ghost" onClick={() => setPrintItems(null)}>Annuler</button>
               <button type="button" className="btn btn-primary" onClick={() => window.print()}>
-                <Printer size={16} /> Confirmer et imprimer ({pages.length} page{pages.length > 1 ? 's' : ''})
+                <Printer size={16} /> Confirmer et imprimer ({plural(pages.length, fmt.pageWord)})
               </button>
             </div>
           </div>
@@ -570,8 +721,8 @@ export default function Labels() {
       {printItems && createPortal(
         <>
           {pages.map((pg, i) => (
-            <PrintPage key={i} items={pg} fontSize={fontSize} qrSize={qrSize} showReserved={showReserved}
-                       note={note} perPage={perPage} isLast={i === pages.length - 1} />
+            <PrintPage key={i} items={pg} fontSize={fontMm} qrSize={qrMm} showReserved={showReserved}
+                       note={note} perPage={perPage} format={format} isLast={i === pages.length - 1} />
           ))}
         </>,
         (() => {
