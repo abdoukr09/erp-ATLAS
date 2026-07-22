@@ -5,11 +5,11 @@ import {
   LayoutDashboard, ShoppingCart, Users, Package,
   Factory, Truck, CreditCard, Settings, LogOut, Globe, Book, PackageCheck, Receipt,
   BookOpen, Box, Briefcase, ShieldCheck, Database, Wrench, ClipboardList,
-  Menu, X, MapPin, Sun, Moon, QrCode, ScanLine
+  Menu, X, MapPin, Sun, Moon, QrCode
 } from 'lucide-react';
 import logoAtlas from '../assets/logo-atlas.png';
 import OfflineBanner from './OfflineBanner';
-import useHasCamera from '../hooks/useHasCamera';
+import useTableCards from '../hooks/useTableCards';
 
 const menuItems = [
   { section: 'Principal', icon: LayoutDashboard, label: 'Tableau de bord', path: '/', roles: ['admin', 'gerant', 'sales'] },
@@ -22,9 +22,8 @@ const menuItems = [
   { section: 'Opérations', icon: Factory, label: 'Fabrication', path: '/production', roles: ['admin', 'production', 'gerant'] },
   { section: 'Opérations', icon: Truck, label: 'Livraisons', path: '/deliveries', roles: ['admin', 'delivery', 'gerant'] },
   { section: 'Opérations', icon: QrCode, label: 'Étiquettes QR', path: '/labels', roles: ['admin', 'gerant', 'production'] },
-  // needsCamera : masqué sur les PC sans webcam, où l'entrée ne mènerait qu'à
-  // un écran « Scan indisponible ».
-  { section: 'Opérations', icon: ScanLine, label: 'Scanner QR', path: '/scan', roles: ['admin', 'gerant', 'production', 'delivery', 'sales'], needsCamera: true },
+  // Le scan ne figure pas ici : c'est le bouton « Scanner » des pages Stock et
+  // Matières Premières qui ouvre /scan, là où l'opérateur en a besoin.
   { section: 'Administration', icon: Briefcase, label: 'Personnel & Paie', path: '/employees', roles: ['admin', 'gerant'] },
   { section: 'Administration', icon: Wrench, label: "Types d'Ouvriers", path: '/worker-types', roles: ['admin'] },
   { section: 'Administration', icon: MapPin, label: 'Gestion des Emplacements', path: '/locations', roles: ['admin'] },
@@ -39,7 +38,10 @@ export default function Layout({ children }) {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
-  const cameraAvailable = useHasCamera();
+
+  // Étiquette chaque cellule avec l'en-tête de sa colonne : en dessous de 768px
+  // le CSS retourne les tableaux en fiches, et chaque valeur garde son libellé.
+  useTableCards();
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -63,6 +65,12 @@ export default function Layout({ children }) {
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
+
+  // Empêche la page de défiler derrière le tiroir ouvert sur téléphone.
+  useEffect(() => {
+    document.body.classList.toggle('nav-open', isMenuOpen);
+    return () => document.body.classList.remove('nav-open');
+  }, [isMenuOpen]);
 
   const getPageTitle = (path) => {
     switch(path) {
@@ -92,15 +100,13 @@ export default function Layout({ children }) {
     return name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?';
   };
 
-  const groupedMenuItems = menuItems
-    .filter(item => !item.needsCamera || cameraAvailable)
-    .reduce((acc, item) => {
-      if (!acc[item.section]) {
-        acc[item.section] = [];
-      }
-      acc[item.section].push(item);
-      return acc;
-    }, {});
+  const groupedMenuItems = menuItems.reduce((acc, item) => {
+    if (!acc[item.section]) {
+      acc[item.section] = [];
+    }
+    acc[item.section].push(item);
+    return acc;
+  }, {});
 
   return (
     <div className="app-layout">

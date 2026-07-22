@@ -229,7 +229,7 @@ export default function FinishedProducts() {
   return (
     <div className="page-transition">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="tab-row">
           <button className={`btn ${activeTab === 'general' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setActiveTab('general')}>Stock des Modèles</button>
           <button className={`btn ${activeTab === 'ready_orders' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setActiveTab('ready_orders')}><PackageCheck size={16} /> Commandes Prêtes</button>
           <button className={`btn ${activeTab === 'local' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setActiveTab('local')}><MapPin size={16} /> Par Emplacement</button>

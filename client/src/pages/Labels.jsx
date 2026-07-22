@@ -412,6 +412,31 @@ export default function Labels() {
           align-items: center;
           gap: 20px;
         }
+
+        /* Sur téléphone les deux colonnes (290px + aperçu) ne tiennent pas :
+           les réglages passent au-dessus de l'aperçu, le tout défilant d'un bloc.
+           Ces règles ne touchent que #root, masqué à l'impression. */
+        @media (max-width: 768px) {
+          .atlas-print-modal {
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+          .atlas-print-modal .modal-body {
+            grid-template-columns: 1fr;
+            overflow-y: auto;
+            padding: 16px;
+            gap: 16px;
+          }
+          .atlas-print-settings,
+          .atlas-print-preview-col {
+            overflow: visible;
+            padding-right: 0;
+          }
+          .atlas-preview-pages-wrap {
+            padding: 12px;
+            overflow-x: auto;
+          }
+        }
       `}</style>
 
       <div className="table-container">
@@ -435,7 +460,7 @@ export default function Labels() {
         </div>
 
         {/* tabs */}
-        <div style={{ display: 'flex', gap: 8, padding: '0 20px 12px' }}>
+        <div className="tab-row" style={{ padding: '0 20px 12px' }}>
           {[
             { key: 'models', label: 'Catalogue', icon: BookOpen, n: models.length },
             { key: 'materials', label: 'Matières Premières', icon: Box, n: materials.length },

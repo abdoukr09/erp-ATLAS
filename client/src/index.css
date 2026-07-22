@@ -593,6 +593,40 @@ tr:last-child td {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* .btn-outline et .btn-secondary sont utilisés par les onglets et les bascules
+   de vue des pages Stock, Livraisons, Primes… mais n'avaient jamais été
+   définis : les boutons inactifs sortaient transparents et sans bordure. */
+.btn-outline {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-outline:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.btn-secondary {
+  background: var(--glass);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+  background: var(--bg-card-hover);
+}
+
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .btn-sm {
   padding: 5px 10px;
   font-size: 12px;
@@ -943,41 +977,11 @@ textarea.form-control {
   }
 }
 
-@media (max-width: 768px) {
-  .sidebar {
-    width: 72px;
-  }
-  .sidebar-logo h1,
-  .sidebar-logo span,
-  .nav-section-title,
-  .nav-item span,
-  .user-details {
-    display: none;
-  }
-  .nav-item {
-    justify-content: center;
-    padding: 12px;
-  }
-  .main-content {
-    margin-left: 72px;
-  }
-  .page-content {
-    padding: 20px;
-  }
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-  .table-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .search-input {
-    width: 100%;
-  }
-}
+/* Le rail d'icônes de 72px qui vivait ici masquait .nav-item span et
+   .nav-section-title. Depuis que la barre latérale est devenue un tiroir
+   coulissant de 280px (voir « MOBILE » plus bas), ces règles ne laissaient sur
+   téléphone qu'une colonne d'icônes sans texte. Tout le responsive est
+   maintenant regroupé dans la section MOBILE en fin de fichier. */
 
 /* ==================== ANIMATIONS ==================== */
 @keyframes fadeInUp {
@@ -1274,131 +1278,27 @@ textarea.form-control {
   to { transform: rotate(360deg); }
 }
 
-/* ==================== RESPONSIVE DESIGN ==================== */
-
-@media (max-width: 1024px) {
-  .sidebar {
-    transform: translateX(-100%);
-    box-shadow: none;
-    width: 280px;
-  }
-  
-  .sidebar.open {
-    transform: translateX(0);
-    box-shadow: var(--shadow-xl);
-  }
-  
-  .main-content {
-    margin-left: 0;
-    width: 100%;
-  }
-  
-  .topbar {
-    padding: 0 16px;
-  }
-
-  /* Mobile Overlay */
-  .mobile-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    z-index: 90;
-    opacity: 0;
-    pointer-events: none;
-    transition: var(--transition);
-  }
-  
-  .mobile-overlay.visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  
-  .page-content {
-    padding: 20px 16px;
-  }
-  
-  .stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 12px;
-  }
-  
-  .stat-card {
-    padding: 16px;
-    gap: 12px;
-  }
-  
-  .stat-icon {
-    width: 40px;
-    height: 40px;
-  }
-  
-  .stat-info h3 {
-    font-size: 20px;
-  }
-  
-  .charts-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .table-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .table-actions {
-    width: 100%;
-    overflow-x: auto;
-    padding-bottom: 8px;
-  }
-  
-  .search-input {
-    width: 100%;
-  }
-
-  .form-row {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-
-  .modal {
-    max-height: 90vh;
-    border-radius: var(--radius-lg);
-  }
-}
-
-@media (max-width: 640px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .topbar-title {
-    font-size: 16px;
-    max-width: 180px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .btn {
-    padding: 6px 12px;
-    font-size: 12px;
-  }
-
-  .badge {
-    padding: 3px 8px;
-    font-size: 10px;
-  }
-}
-
-/* Helper class for horizontal scroll on mobile */
+/* Sur grand écran les tableaux larges défilent horizontalement dans leur
+   conteneur. En dessous de 768px ils deviennent des fiches (voir MOBILE). */
 .table-container {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 
 table {
-  min-width: 600px; /* Force scroll on very narrow screens */
+  min-width: 600px;
+}
+
+/* Bascules de vue et onglets : « Vue Tableau / Vue Recharge », « Stock des
+   Modèles / Commandes Prêtes / Par Emplacement »… */
+.view-toggle,
+.tab-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  /* Autorise la rangée à rétrécir sous la largeur de ses onglets, sans quoi
+     l'overflow-x du mode mobile ne peut jamais se déclencher. */
+  min-width: 0;
 }
 
 /* Menu Toggle Button (for Topbar) */
@@ -1418,10 +1318,590 @@ table {
   background: var(--glass);
 }
 
+/* ==================== TABLETTE ==================== */
+
 @media (max-width: 1024px) {
+  .sidebar {
+    transform: translateX(-100%);
+    box-shadow: none;
+    width: 280px;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: var(--shadow-xl);
+  }
+
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+    /* Sans cela une fiche ou un tableau trop large fait déborder toute la page
+       latéralement au lieu de défiler dans son propre cadre. */
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .topbar {
+    padding: 0 16px;
+  }
+
   .menu-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .mobile-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 90;
+    opacity: 0;
+    pointer-events: none;
+    transition: var(--transition);
+  }
+
+  .mobile-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Le tiroir est ouvert : la page derrière ne doit plus défiler sous le doigt. */
+  body.nav-open {
+    overflow: hidden;
+  }
+
+  .page-content {
+    padding: 20px 16px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .stat-info h3 {
+    font-size: 20px;
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .table-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    width: 100%;
+  }
+
+  .smart-search {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .modal {
+    max-height: 90vh;
+    border-radius: var(--radius-lg);
+  }
+}
+
+/* ==================== MOBILE ====================
+   Tout ce qui suit ne concerne que le téléphone. Deux principes :
+   – aucune information n'est cachée, elle est réorganisée verticalement ;
+   – toute cible tactile fait au moins 40px de haut. */
+
+@media (max-width: 768px) {
+
+  /* ---------- Tiroir de navigation ---------- */
+  /* Le tiroir occupe presque tout l'écran et affiche les libellés en entier :
+     « Stock (Produits Finis) » se lit, contrairement à une icône seule. */
+  .sidebar {
+    width: min(86vw, 320px);
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .sidebar-nav {
+    padding: 12px 10px;
+    overscroll-behavior: contain;
+  }
+
+  .nav-section-title {
+    padding: 14px 12px 6px;
+    font-size: 11px;
+  }
+
+  /* Cible tactile confortable, libellé sur une seule ligne. */
+  .nav-item {
+    padding: 13px 14px;
+    font-size: 15px;
+    gap: 14px;
+    margin-bottom: 4px;
+    border-radius: var(--radius-md);
+  }
+
+  .nav-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Repère visuel de la page courante, lisible d'un coup d'œil. */
+  .nav-item.active {
+    box-shadow: inset 3px 0 0 var(--accent-blue);
+  }
+
+  .sidebar-footer {
+    padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .user-info {
+    padding: 12px;
+  }
+
+  .btn-logout {
+    padding: 10px;
+  }
+
+  /* ---------- Barre supérieure ---------- */
+  .topbar {
+    height: auto;
+    min-height: 60px;
+    padding: env(safe-area-inset-top) 12px 0;
+    gap: 8px;
+  }
+
+  .topbar > div:first-child {
+    min-width: 0;
+    flex: 1;
+    padding: 10px 0;
+  }
+
+  .topbar-title {
+    font-size: 16px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .topbar-actions {
+    flex-shrink: 0;
+    gap: 8px;
+    padding: 10px 0;
+  }
+
+  .menu-toggle {
+    padding: 10px;
+    margin-right: 4px;
+  }
+
+  .page-content {
+    padding: 16px 12px calc(24px + env(safe-area-inset-bottom));
+  }
+
+  /* ---------- Tableaux → fiches ----------
+     Chaque ligne devient un cadre autonome ; chaque valeur porte au-dessus
+     d'elle le titre de sa colonne, recopié par le hook useTableCards. */
+  .table-container {
+    overflow-x: visible;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    backdrop-filter: none;
+  }
+
+  .table-container table,
+  table {
+    min-width: 0;
+    width: 100%;
+    display: block;
+  }
+
+  /* Les en-têtes sont désormais portés par chaque cellule. */
+  .table-container thead,
+  table thead {
+    display: none;
+  }
+
+  .table-container tbody,
+  table tbody {
+    display: block;
+  }
+
+  tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  tbody td {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    /* flex-start et non stretch : sans cela un .badge, qui est inline-flex,
+       s'étirerait sur toute la largeur de la cellule. */
+    align-items: flex-start;
+    gap: 5px;
+    padding: 0;
+    border: none;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 15px;
+    color: var(--text-primary);
+    word-break: break-word;
+  }
+
+  /* Le libellé de la colonne, en petit au-dessus de la valeur. */
+  tbody td[data-label]::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  /* Les cellules à colSpan (« Aucun article », totaux) n'ont pas de colonne :
+     elles occupent toute la fiche. */
+  tbody td[data-fullwidth] {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+
+  /* Les boutons d'action méritent toute la largeur, alignés à droite. */
+  tbody td:has(.action-buttons) {
+    grid-column: 1 / -1;
+    align-items: stretch;
+    border-top: 1px solid var(--glass-border);
+    padding-top: 12px;
+  }
+
+  tbody td:has(.action-buttons)::before {
+    display: none;
+  }
+
+  .action-buttons {
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  /* Le survol n'existe pas au doigt ; il ne doit pas repeindre la fiche. */
+  tbody tr:hover td {
+    background: transparent;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  /* Une ligne vide ne doit pas ressembler à une fiche de données. */
+  tbody tr:has(> td[data-fullwidth]) {
+    display: block;
+    background: var(--glass);
+    border-style: dashed;
+    box-shadow: none;
+  }
+
+  .table-empty {
+    padding: 28px 16px;
+  }
+
+  tfoot {
+    display: block;
+  }
+
+  tfoot tr {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 16px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    font-weight: 700;
+  }
+
+  tfoot td {
+    display: block;
+    padding: 0;
+    border: none;
+    color: var(--text-primary);
+  }
+
+  /* ---------- Barre de titre + actions des tableaux ---------- */
+  .table-header {
+    padding: 0 0 14px;
+    border-bottom: none;
+    gap: 12px;
+  }
+
+  .table-header h2 {
+    font-size: 16px;
+  }
+
+  /* Recherche pleine largeur, puis les boutons côte à côte en dessous. */
+  .table-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    overflow: visible;
+  }
+
+  .table-actions .btn {
+    justify-content: center;
+    width: 100%;
+  }
+
+  /* ---------- Recherche ---------- */
+  .smart-search {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* 16px : en dessous, iOS zoome automatiquement sur le champ à la saisie et
+     l'utilisateur se retrouve avec une page décalée. */
+  .smart-search-input,
+  .search-input,
+  .form-control,
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .smart-search-input-row {
+    padding: 2px 6px 2px 12px;
+  }
+
+  .smart-search-filter-btn {
+    padding: 10px;
+  }
+
+  .smart-search-dropdown {
+    max-height: 60vh;
+  }
+
+  .smart-search-option,
+  .smart-search-group-header {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 11px 12px 11px 36px;
+  }
+
+  /* ---------- Boutons ---------- */
+  /* 40px de haut minimum : en dessous, le doigt rate la cible. */
+  .btn {
+    min-height: 40px;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .btn-sm {
+    min-height: 34px;
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+
+  .btn-icon {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+
+  /* Onglets et bascules de vue : ils défilent au doigt au lieu de déborder. */
+  .view-toggle,
+  .tab-row {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    margin-bottom: 4px;
+  }
+
+  .view-toggle::-webkit-scrollbar,
+  .tab-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .view-toggle .btn,
+  .tab-row .btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  /* ---------- Cartes de statistiques ---------- */
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .stat-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .stat-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .stat-info h3 {
+    font-size: 19px;
+  }
+
+  .stat-info p {
+    font-size: 12px;
+  }
+
+  .card,
+  .chart-card {
+    padding: 16px;
+  }
+
+  .alert-banner {
+    padding: 12px 14px;
+    font-size: 13px;
+    align-items: flex-start;
+  }
+
+  /* ---------- Fenêtres modales ---------- */
+  /* En feuille remontant du bas : le pouce atteint les boutons sans effort. */
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  /* C'est .modal qui défile (overflow-y: auto de la règle de base) ; en-tête et
+     pied s'y accrochent en sticky. Pas de second conteneur défilant à
+     l'intérieur, qui piégerait le geste de défilement. */
+  .modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    /* slideUp part de 20px : sur une feuille collée en bas, le geste se lit mieux
+       si elle monte depuis le bord de l'écran. */
+    animation: sheetUp 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @keyframes sheetUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bg-modal);
+    padding: 18px 18px 14px;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+
+  .modal-header h2 {
+    font-size: 16px;
+  }
+
+  .modal-body {
+    padding: 18px;
+  }
+
+  /* Le pied reste visible même quand le formulaire est long. */
+  .modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-modal);
+    border-top: 1px solid var(--glass-border);
+    padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+
+  .modal-footer .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* ---------- Formulaires ---------- */
+  .form-control {
+    padding: 12px 14px;
+  }
+
+  .form-group label {
+    font-size: 11px;
+  }
+
+  /* ---------- Grilles de stock (vue Recharge) ---------- */
+  .stock-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .badge {
+    padding: 4px 9px;
+    font-size: 11px;
+  }
+}
+
+/* Téléphones étroits (iPhone SE et assimilés) : une seule colonne. Au-dessus de
+   360px les fiches gardent leurs deux colonnes, plus denses à parcourir. */
+@media (max-width: 360px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  tbody tr {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .stock-grid {
+    grid-template-columns: 1fr !important;
   }
 }
