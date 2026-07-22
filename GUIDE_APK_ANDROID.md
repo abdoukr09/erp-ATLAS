@@ -155,9 +155,9 @@ affiche les erreurs réseau exactement comme sur le site.
   plusieurs tablettes partagent le Wi-Fi de l'atelier, elles partagent aussi cette
   IP : la limite peut être atteinte. À surveiller si des erreurs `429` apparaissent
   (`server/middleware/rateLimiter.js`).
-- **Permission caméra** déjà déclarée dans le manifeste, prête pour le scan de
-  codes QR des étiquettes de production. Il restera à installer un plugin de scan
-  et à demander la permission à l'exécution.
+- **Scan des codes QR** actif via `@capacitor-mlkit/barcode-scanning`. La
+  permission caméra est demandée à la première ouverture du scanner. Le site
+  scanne lui aussi, avec la caméra du navigateur — voir la section 7.
 - **Icônes** : générées à partir du logo officiel `client/src/assets/logo-atlas.png`
   (celui de l'écran de connexion). Le symbole est isolé automatiquement, sans le
   texte « ERP ATLAS » qui serait illisible à 48 px. Pour les régénérer après un
@@ -170,3 +170,46 @@ affiche les erreurs réseau exactement comme sur le site.
       --iconBackgroundColorDark "#ffffff" --splashBackgroundColor "#ffffff" \
       --splashBackgroundColorDark "#ffffff"
   ```
+
+---
+
+## 7. Scanner depuis le site (sans l'APK)
+
+Le site scanne les mêmes étiquettes que l'application, avec la caméra du
+navigateur. Aucune installation : on ouvre `https://erp-canape-client.vercel.app`
+sur un téléphone ou une tablette, et le bouton **Scanner** est là.
+
+| | APK | Site |
+|---|---|---|
+| Caméra | MLKit (natif) | `getUserMedia` dans la page |
+| Décodage | MLKit | `BarcodeDetector` si présent, sinon jsQR |
+| Écran, modes, file d'attente | identiques | identiques |
+
+Le reste est du code commun : mêmes boutons RECHARGE / DÉCHARGE, même annulation,
+même outbox hors-ligne. Un mouvement scanné dans le navigateur est enregistré
+exactement comme un mouvement scanné dans l'app.
+
+**Où apparaît le bouton.** Partout où l'appareil a une caméra : menu
+**Opérations → Scanner QR**, plus les pages Matières Premières et Stock. Sur un
+PC sans webcam, ces entrées n'apparaissent pas du tout — inutile de proposer un
+scan qui ne peut pas aboutir. La détection se fait par `enumerateDevices()`, pas
+en devinant le type d'appareil.
+
+**Le https est obligatoire.** Les navigateurs ne donnent la caméra qu'en contexte
+sécurisé : `https://` ou `localhost`. Le site Vercel est en https, donc rien à
+faire. En revanche, le serveur de développement ouvert depuis une tablette sur
+l'adresse Wi-Fi de l'atelier (`http://192.168.x.x:5173`) n'aura **aucune caméra**,
+et le scanner affichera un message l'expliquant. C'est une règle des navigateurs,
+pas un réglage de l'application.
+
+**Décodeurs.** Chrome et Edge sur Android fournissent `BarcodeDetector`, du code
+natif rapide : c'est ce qui est utilisé en priorité. Safari iOS et Firefox ne
+l'ont pas et basculent sur jsQR, chargé à la demande (~47 Ko gzip, dans un chunk
+séparé : les navigateurs qui n'en ont pas besoin ne le téléchargent jamais).
+
+**Flash.** Sur les caméras arrière qui le déclarent, un bouton éclair apparaît en
+haut de l'écran de scan — utile dans un dépôt sombre.
+
+Code concerné : `client/src/lib/webScanner.js` (caméra + décodage),
+`client/src/hooks/useHasCamera.js` (détection), `client/src/pages/Scanner.jsx`
+(écran partagé APK / site).

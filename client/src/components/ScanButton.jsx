@@ -1,15 +1,18 @@
 import { useNavigate } from 'react-router-dom';
 import { ScanLine } from 'lucide-react';
-import { isNative } from '../native';
+import useHasCamera from '../hooks/useHasCamera';
 
 /**
- * Opens the full-screen camera scanner.
- * Renders nothing in a browser — desktop users have no camera to scan with, and
- * the stock pages already offer the +/- controls.
+ * Ouvre le scanner plein écran.
+ * S'affiche partout où il y a une caméra : dans l'APK, et sur le site ouvert
+ * depuis un téléphone ou une tablette. Sur un PC sans webcam le bouton reste
+ * invisible — les pages de stock y offrent déjà les boutons +/−.
  */
 export default function ScanButton({ label = 'Scanner' }) {
   const navigate = useNavigate();
-  if (!isNative()) return null;
+  const cameraAvailable = useHasCamera();
+
+  if (!cameraAvailable) return null;
 
   return (
     <button

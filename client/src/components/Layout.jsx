@@ -5,10 +5,11 @@ import {
   LayoutDashboard, ShoppingCart, Users, Package,
   Factory, Truck, CreditCard, Settings, LogOut, Globe, Book, PackageCheck, Receipt,
   BookOpen, Box, Briefcase, ShieldCheck, Database, Wrench, ClipboardList,
-  Menu, X, MapPin, Sun, Moon, QrCode
+  Menu, X, MapPin, Sun, Moon, QrCode, ScanLine
 } from 'lucide-react';
 import logoAtlas from '../assets/logo-atlas.png';
 import OfflineBanner from './OfflineBanner';
+import useHasCamera from '../hooks/useHasCamera';
 
 const menuItems = [
   { section: 'Principal', icon: LayoutDashboard, label: 'Tableau de bord', path: '/', roles: ['admin', 'gerant', 'sales'] },
@@ -21,6 +22,9 @@ const menuItems = [
   { section: 'Opérations', icon: Factory, label: 'Fabrication', path: '/production', roles: ['admin', 'production', 'gerant'] },
   { section: 'Opérations', icon: Truck, label: 'Livraisons', path: '/deliveries', roles: ['admin', 'delivery', 'gerant'] },
   { section: 'Opérations', icon: QrCode, label: 'Étiquettes QR', path: '/labels', roles: ['admin', 'gerant', 'production'] },
+  // needsCamera : masqué sur les PC sans webcam, où l'entrée ne mènerait qu'à
+  // un écran « Scan indisponible ».
+  { section: 'Opérations', icon: ScanLine, label: 'Scanner QR', path: '/scan', roles: ['admin', 'gerant', 'production', 'delivery', 'sales'], needsCamera: true },
   { section: 'Administration', icon: Briefcase, label: 'Personnel & Paie', path: '/employees', roles: ['admin', 'gerant'] },
   { section: 'Administration', icon: Wrench, label: "Types d'Ouvriers", path: '/worker-types', roles: ['admin'] },
   { section: 'Administration', icon: MapPin, label: 'Gestion des Emplacements', path: '/locations', roles: ['admin'] },
@@ -35,6 +39,7 @@ export default function Layout({ children }) {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+  const cameraAvailable = useHasCamera();
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -71,6 +76,7 @@ export default function Layout({ children }) {
       case '/production': return 'Suivi de Production';
       case '/deliveries': return 'Bons de Livraison';
       case '/labels': return 'Étiquettes QR';
+      case '/scan': return 'Scanner QR';
       case '/employees': return 'Personnel & Paie';
       case '/worker-types': return "Types d'Ouvriers & Tarifs";
       case '/reports': return 'Rapport Journalier';
@@ -86,13 +92,15 @@ export default function Layout({ children }) {
     return name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?';
   };
 
-  const groupedMenuItems = menuItems.reduce((acc, item) => {
-    if (!acc[item.section]) {
-      acc[item.section] = [];
-    }
-    acc[item.section].push(item);
-    return acc;
-  }, {});
+  const groupedMenuItems = menuItems
+    .filter(item => !item.needsCamera || cameraAvailable)
+    .reduce((acc, item) => {
+      if (!acc[item.section]) {
+        acc[item.section] = [];
+      }
+      acc[item.section].push(item);
+      return acc;
+    }, {});
 
   return (
     <div className="app-layout">
